@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "start": "node server.js",
-    "start:cli": "node index.js"
+    "dev": "bun run build && bun server.js",
+    "start": "bun server.js",
+    "start:cli": "bun index.js"
   },
   "devDependencies": {
     "@types/node": "^22.19.7",

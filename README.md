@@ -6,12 +6,12 @@ A WebSocket-based API for low-latency, "speech in, speech out" conversations wit
 
 ## Quick Start
 
-**Prerequisites:** Node.js + Azure CLI (for `az login`) or a service principal
+**Prerequisites:** Bun + Azure CLI (for `az login`) or a service principal
 
 ```bash
-npm install
-npm run build
-npm start
+bun install
+bun run build
+bun start
 ```
 
 Open `http://localhost:8787/` and configure the endpoint/deployment.
@@ -48,9 +48,9 @@ The API is designed for server-side use via a trusted middle tier—not direct b
 ## Using the sample
 
 1. Navigate to this folder
-2. Run `npm install` to download a small number of dependency packages (see `package.json`)
-3. Run `npm run build` to generate the Node server output
-4. Run `npm start` and open `http://localhost:8787/`
+2. Run `bun install` to download a small number of dependency packages (see `package.json`)
+3. Run `bun run build` to generate the Node server output
+4. Run `bun start` and open `http://localhost:8787/`
 5. In the "Endpoint" field, provide the resource endpoint of an Azure OpenAI resource; this does not need to append `/realtime` and an example structure might be `https://my-azure-openai-resource-from-portal.openai.azure.com`
 6. Click the "Start" button to start the session; accept any microphone permissions dialog
 7. You should see a `<< Session Started >>` message in the left-side output, after which you can speak to the app
