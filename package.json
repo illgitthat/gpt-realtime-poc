@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "dev": "bun run build && bun server.js",
-    "start": "bun server.js",
+    "dev": "wrangler dev --port 8787",
+    "deploy": "wrangler deploy",
     "start:cli": "bun index.js"
   },
   "devDependencies": {
     "@types/node": "^22.19.7",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "wrangler": "^4.61.1"
   },
   "dependencies": {
     "@azure/identity": "^4.4.1",
