@@ -133,6 +133,13 @@ body.panel-open {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 .logo {
@@ -175,6 +182,12 @@ body.panel-open {
 .connection-status.connecting {
   background: var(--color-warning-light);
   color: #92400e;
+}
+
+/* Header End Chat Button */
+.btn-small {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-sm);
 }
 
 .status-dot {
@@ -257,6 +270,29 @@ body.panel-open {
   justify-content: center;
   margin-bottom: var(--space-lg);
   box-shadow: var(--shadow-glow);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  animation: welcomePulse 2s ease-in-out infinite;
+}
+
+@keyframes welcomePulse {
+  0%, 100% {
+    box-shadow: 0 0 20px var(--color-primary-glow);
+  }
+  50% {
+    box-shadow: 0 0 35px var(--color-primary-glow), 0 0 50px rgba(99, 102, 241, 0.2);
+  }
+}
+
+.welcome-icon:hover {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-xl), 0 0 30px var(--color-primary-glow);
+  animation: none;
+}
+
+.welcome-icon:active {
+  transform: scale(0.98);
 }
 
 .welcome-icon svg {
@@ -948,13 +984,13 @@ body.panel-open {
   }
 
   .welcome-icon {
-    width: 64px;
-    height: 64px;
+    width: 72px;
+    height: 72px;
   }
 
   .welcome-icon svg {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
   }
 
   .welcome-message h2 {

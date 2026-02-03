@@ -28,9 +28,17 @@
             </svg>
             <span class="logo-text">Voice Assistant</span>
           </div>
-          <div class="connection-status" id="connection-status">
-            <span class="status-dot" id="status-indicator"></span>
-            <span class="status-label" id="status-text">Ready</span>
+          <div class="header-right">
+            <div class="connection-status" id="connection-status">
+              <span class="status-dot" id="status-indicator"></span>
+              <span class="status-label" id="status-text">Ready</span>
+            </div>
+            <button id="header-end-chat" class="btn btn-danger btn-small hidden" type="button">
+              <svg class="btn-icon-small" viewBox="0 0 24 24" fill="none">
+                <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/>
+              </svg>
+              <span>End Chat</span>
+            </button>
           </div>
         </div>
       </header>
@@ -41,14 +49,14 @@
         <section class="conversation-section">
           <div class="conversation-container" id="transcriptContainer">
             <div class="welcome-message">
-              <div class="welcome-icon">
+              <button class="welcome-icon" id="welcome-start-btn" type="button" aria-label="Start conversation">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z" fill="currentColor"/>
                   <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V22h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="currentColor"/>
                 </svg>
-              </div>
+              </button>
               <h2>Start a Conversation</h2>
-              <p>Click the button below to begin talking with your AI assistant</p>
+              <p>Tap the mic above to begin talking</p>
             </div>
           </div>
         </section>
@@ -56,40 +64,14 @@
         <!-- Control Panel -->
         <aside class="control-panel">
           <div class="panel-section">
-            <h3 class="panel-title">Quick Start</h3>
-            <div class="main-controls">
-              <button id="start-session" class="btn btn-primary btn-large" type="button">
-                <svg class="btn-icon" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z" fill="currentColor"/>
-                  <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V22h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="currentColor"/>
-                </svg>
-                <span>Start Talking</span>
-              </button>
-              <button id="stop-session" class="btn btn-danger btn-large" type="button" disabled>
-                <svg class="btn-icon" viewBox="0 0 24 24" fill="none">
-                  <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/>
-                </svg>
-                <span>End Chat</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="panel-section">
             <h3 class="panel-title">Conversation Style</h3>
             <p class="panel-description">Choose how the assistant should behave</p>
             <div class="style-cards">
               <button id="default-mode" class="style-card active" type="button">
                 <div class="style-icon">💬</div>
                 <div class="style-info">
-                  <span class="style-name">Friendly Chat</span>
+                  <span class="style-name">General Conversation</span>
                   <span class="style-desc">Natural conversation</span>
-                </div>
-              </button>
-              <button id="reduce-interruptions" class="style-card" type="button">
-                <div class="style-icon">🎧</div>
-                <div class="style-info">
-                  <span class="style-name">Good Listener</span>
-                  <span class="style-desc">Lets you finish thoughts</span>
                 </div>
               </button>
               <button id="interview-mode" class="style-card" type="button">
@@ -196,7 +178,6 @@
   <script>
     const {
       defaultPrompt,
-      reduceInterruptionsPrompt,
       interviewModePrompt,
       languageTutorPrompt
     } = window.SYSTEM_PROMPTS;
@@ -209,8 +190,7 @@
     const pendingUserMessages = new Map();
 
     // DOM elements
-    const startButton = document.getElementById("start-session");
-    const stopButton = document.getElementById("stop-session");
+    const headerEndChatBtn = document.getElementById("header-end-chat");
     const mobileStartButton = document.getElementById("mobile-start");
     const mobileStopButton = document.getElementById("mobile-stop");
     const mobileSettingsButton = document.getElementById("mobile-settings");
@@ -224,10 +204,10 @@
     const connectionStatus = document.getElementById("connection-status");
     const clearAllButton = document.getElementById("clear-all");
     const defaultModeButton = document.getElementById("default-mode");
-    const reduceInterruptionsButton = document.getElementById("reduce-interruptions");
     const interviewModeButton = document.getElementById("interview-mode");
     const languageTutorButton = document.getElementById("language-tutor");
     const collapseToggles = document.querySelectorAll(".collapse-toggle");
+    const welcomeStartBtn = document.getElementById("welcome-start-btn");
 
     // Friendly status messages
     const statusMessages = {
@@ -317,10 +297,15 @@
     }
 
     function setButtonStates(sessionActive) {
-      startButton.disabled = sessionActive;
-      stopButton.disabled = !sessionActive;
       voiceSelect.disabled = sessionActive;
       instructionsTextarea.disabled = sessionActive;
+
+      // Header end chat button
+      if (sessionActive) {
+        headerEndChatBtn.classList.remove('hidden');
+      } else {
+        headerEndChatBtn.classList.add('hidden');
+      }
 
       // Mobile buttons
       if (sessionActive) {
@@ -345,9 +330,6 @@
       if (mode === 'default') {
         defaultModeButton.classList.add('active');
         instructionsTextarea.value = defaultPrompt;
-      } else if (mode === 'listener') {
-        reduceInterruptionsButton.classList.add('active');
-        instructionsTextarea.value = reduceInterruptionsPrompt;
       } else if (mode === 'interview') {
         interviewModeButton.classList.add('active');
         instructionsTextarea.value = interviewModePrompt;
@@ -595,15 +577,17 @@
       if (transcriptContainer.children.length === 0) {
         transcriptContainer.innerHTML = `
           <div class="welcome-message">
-            <div class="welcome-icon">
+            <button class="welcome-icon" id="welcome-start-btn" type="button" aria-label="Start conversation">
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z" fill="currentColor"/>
                 <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V22h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="currentColor"/>
               </svg>
-            </div>
+            </button>
             <h2>Start a Conversation</h2>
-            <p>Click the button below to begin talking with your AI assistant</p>
+            <p>Tap the mic above to begin talking</p>
           </div>`;
+        // Re-attach event listener for dynamically created button
+        document.getElementById('welcome-start-btn')?.addEventListener('click', startSession);
       }
     }
 
@@ -614,10 +598,10 @@
     }
 
     // Event listeners
-    startButton.addEventListener("click", startSession);
-    stopButton.addEventListener("click", stopSession);
+    headerEndChatBtn.addEventListener("click", stopSession);
     mobileStartButton.addEventListener("click", startSession);
     mobileStopButton.addEventListener("click", stopSession);
+    welcomeStartBtn.addEventListener("click", startSession);
 
     mobileSettingsButton.addEventListener("click", toggleMobilePanel);
     mobilePanelOverlay.addEventListener("click", toggleMobilePanel);
@@ -633,7 +617,6 @@
     });
 
     defaultModeButton.addEventListener("click", () => setActiveStyleCard('default'));
-    reduceInterruptionsButton.addEventListener("click", () => setActiveStyleCard('listener'));
     interviewModeButton.addEventListener("click", () => setActiveStyleCard('interview'));
     languageTutorButton.addEventListener("click", () => setActiveStyleCard('tutor'));
 
@@ -654,8 +637,7 @@
         <div class="mobile-option-group">
           <label>Conversation Style</label>
           <div class="mobile-style-options">
-            <button class="mobile-style-btn active" data-style="default">💬 Friendly Chat</button>
-            <button class="mobile-style-btn" data-style="listener">🎧 Good Listener</button>
+            <button class="mobile-style-btn active" data-style="default">💬 General Conversation</button>
             <button class="mobile-style-btn" data-style="interview">💼 Interview Coach</button>
             <button class="mobile-style-btn" data-style="tutor">🗣️ Language Tutor</button>
           </div>
@@ -698,6 +680,20 @@
         toggleMobilePanel();
       });
     }
+
+    // Auto-expand settings panel on mobile on page load
+    function checkMobileAndExpandSettings() {
+      if (window.innerWidth <= 768) {
+        // Small delay to ensure DOM is ready
+        setTimeout(() => {
+          if (!mobileSettingsPanel.classList.contains('hidden')) return;
+          toggleMobilePanel();
+        }, 300);
+      }
+    }
+
+    // Run on page load
+    checkMobileAndExpandSettings();
   </script>
 </body>
 
