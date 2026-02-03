@@ -58,11 +58,6 @@ Browser <-> Cloudflare Worker <-> Azure OpenAI /realtime
 
 The Worker acts as the trusted middle tier for credentials and token minting.
 
-## Known issues
-
-1. Connection errors are not yet gracefully handled and looping error spew may be observed in script debug output. Please refresh the page if an error appears.
-2. If token acquisition fails, confirm the Azure environment variables are set correctly.
-
 ## Using the sample
 
 1. Run `bun install`.
