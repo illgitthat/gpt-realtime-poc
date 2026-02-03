@@ -2,7 +2,7 @@
 
 > **Note:** This project was originally forked from [Azure-Samples/aoai-realtime-audio-sdk](https://github.com/Azure-Samples/aoai-realtime-audio-sdk)
 
-A WebSocket-based API for low-latency, "speech in, speech out" conversations with GPT-4o. Supports text messages, function calling, and voice activity detection. Azure OpenAI only.
+A WebSocket-based API for low-latency, "speech in, speech out" conversations with gpt-realtime. Supports text messages, function calling, and voice activity detection. Azure OpenAI only.
 
 ## Quick Start
 

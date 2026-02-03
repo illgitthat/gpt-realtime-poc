@@ -9,15 +9,19 @@ let audioPlayer;
 const appConfig = window.__APP_CONFIG__ || {};
 const azureEndpoint = appConfig.azureEndpoint || "";
 const azureDeployment = appConfig.azureDeployment || "";
-let cachedAzureToken = null;
+let cachedAzureAuth = null;
 
-async function fetchAzureToken() {
-  if (
-    cachedAzureToken &&
-    cachedAzureToken.expiresOnTimestamp &&
-    cachedAzureToken.expiresOnTimestamp - Date.now() > 60000
-  ) {
-    return cachedAzureToken;
+async function fetchAzureAuth() {
+  if (cachedAzureAuth?.type === "aad") {
+    if (
+      cachedAzureAuth.expiresOnTimestamp &&
+      cachedAzureAuth.expiresOnTimestamp - Date.now() > 60000
+    ) {
+      return cachedAzureAuth;
+    }
+  }
+  if (cachedAzureAuth?.type === "apiKey") {
+    return cachedAzureAuth;
   }
 
   const response = await fetch("/token");
@@ -28,17 +32,27 @@ async function fetchAzureToken() {
   if (!data || !data.token) {
     throw new Error("Token response missing token.");
   }
-  cachedAzureToken = {
+
+  if (data.tokenType === "apiKey") {
+    cachedAzureAuth = { type: "apiKey", key: data.token };
+    return cachedAzureAuth;
+  }
+
+  cachedAzureAuth = {
+    type: "aad",
     token: data.token,
     expiresOnTimestamp:
       data.expiresOnTimestamp || Date.now() + 30 * 60 * 1000,
   };
-  return cachedAzureToken;
+  return cachedAzureAuth;
 }
 
-function createAzureTokenCredential() {
+function createAzureCredential(auth) {
+  if (auth?.type === "apiKey") {
+    return { key: auth.key };
+  }
   return {
-    getToken: async () => fetchAzureToken(),
+    getToken: async () => auth,
   };
 }
 
@@ -50,7 +64,8 @@ async function start_realtime() {
     throw new Error("Azure OpenAI endpoint and deployment are required.");
   }
 
-  const credential = createAzureTokenCredential();
+  const auth = await fetchAzureAuth();
+  const credential = createAzureCredential(auth);
   realtimeStreaming = new LowLevelRTClient(
     new URL(endpoint),
     credential,

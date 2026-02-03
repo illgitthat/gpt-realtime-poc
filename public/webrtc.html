@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Azure OpenAI Realtime - WebRTC</title>
+    <link rel="stylesheet" href="./style.css" />
+    <style>
+      #logContainer {
+        background: #1a1a1a;
+        border: 1px solid #333;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 16px;
+        max-height: 400px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 13px;
+      }
+      #logContainer p {
+        margin: 4px 0;
+        padding: 4px 8px;
+        border-radius: 4px;
+      }
+      #logContainer p.info {
+        color: #6eb5ff;
+      }
+      #logContainer p.success {
+        color: #4ade80;
+        background: rgba(74, 222, 128, 0.1);
+      }
+      #logContainer p.error {
+        color: #f87171;
+        background: rgba(248, 113, 113, 0.1);
+      }
+      #logContainer p.event {
+        color: #c084fc;
+      }
+      #logContainer p.data {
+        color: #fbbf24;
+      }
+
+      .controls-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+
+      #transcriptContainer {
+        background: #0f0f0f;
+        border: 1px solid #333;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 16px;
+        min-height: 100px;
+      }
+
+      #transcriptContainer .user {
+        color: #6eb5ff;
+      }
+      #transcriptContainer .assistant {
+        color: #4ade80;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <h1>Azure OpenAI Realtime - WebRTC Mode</h1>
+      <p>
+        This page uses WebRTC for real-time audio communication with Azure
+        OpenAI.
+      </p>
+
+      <div class="container">
+        <div class="controls">
+          <div class="controls-row">
+            <button id="start-session" type="button">Start Session</button>
+            <button id="close-session" type="button" disabled>
+              Close Session
+            </button>
+          </div>
+
+          <div class="input-group">
+            <label for="text-input">Send Text Message</label>
+            <div style="display: flex; gap: 10px">
+              <input
+                type="text"
+                id="text-input"
+                placeholder="Type a message..."
+                style="flex: 1"
+              />
+              <button id="send-text" type="button" disabled>Send</button>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label for="voice">Voice</label>
+            <select id="voice">
+              <option value="alloy" selected>Alloy</option>
+              <option value="ash">Ash</option>
+              <option value="ballad">Ballad</option>
+              <option value="coral">Coral</option>
+              <option value="echo">Echo</option>
+              <option value="sage">Sage</option>
+              <option value="shimmer">Shimmer</option>
+              <option value="verse">Verse</option>
+            </select>
+          </div>
+        </div>
+
+        <h3>Transcript</h3>
+        <div id="transcriptContainer"></div>
+
+        <h3>Connection Log</h3>
+        <div id="logContainer"></div>
+      </div>
+    </div>
+
+    <script>
+      // Global state
+      let peerConnection = null;
+      let dataChannel = null;
+      let audioElement = null;
+
+      // DOM elements
+      const startButton = document.getElementById("start-session");
+      const closeButton = document.getElementById("close-session");
+      const sendTextButton = document.getElementById("send-text");
+      const textInput = document.getElementById("text-input");
+      const voiceSelect = document.getElementById("voice");
+      const logContainer = document.getElementById("logContainer");
+      const transcriptContainer = document.getElementById(
+        "transcriptContainer",
+      );
+
+      function logMessage(message, type = "info") {
+        const p = document.createElement("p");
+        p.className = type;
+        p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+        logContainer.appendChild(p);
+        logContainer.scrollTop = logContainer.scrollHeight;
+        console.log(message);
+      }
+
+      function addTranscript(role, text) {
+        const div = document.createElement("div");
+        div.className = role;
+        div.innerHTML = `<strong>${role === "user" ? "You" : "Assistant"}:</strong> ${text}`;
+        transcriptContainer.appendChild(div);
+        transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+      }
+
+      function setButtonStates(sessionActive) {
+        startButton.disabled = sessionActive;
+        closeButton.disabled = !sessionActive;
+        sendTextButton.disabled = !sessionActive;
+        voiceSelect.disabled = sessionActive;
+      }
+
+      async function startSession() {
+        try {
+          logMessage("Starting WebRTC session...", "info");
+          setButtonStates(true);
+
+          // Create RTCPeerConnection
+          peerConnection = new RTCPeerConnection();
+          logMessage("RTCPeerConnection created", "success");
+
+          // Get microphone access
+          logMessage("Requesting microphone access...", "info");
+          const clientMedia = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+          });
+          logMessage("Microphone access granted", "success");
+
+          const audioTrack = clientMedia.getAudioTracks()[0];
+          logMessage(`Audio track: ${audioTrack.label}`, "info");
+          peerConnection.addTrack(audioTrack);
+          logMessage("Audio track added to peer connection", "success");
+
+          // Set up audio playback for remote audio
+          audioElement = document.createElement("audio");
+          audioElement.autoplay = true;
+          document.body.appendChild(audioElement);
+          logMessage("Audio playback element created", "info");
+
+          peerConnection.ontrack = (event) => {
+            logMessage(`Remote track received: ${event.track.kind}`, "success");
+            if (event.streams.length > 0) {
+              audioElement.srcObject = event.streams[0];
+              logMessage("Remote audio stream connected", "success");
+            }
+          };
+
+          // Create data channel for sending/receiving events
+          dataChannel = peerConnection.createDataChannel("realtime-channel");
+          logMessage("Data channel created", "info");
+
+          dataChannel.addEventListener("open", () => {
+            logMessage(
+              "Data channel is open - ready to communicate!",
+              "success",
+            );
+          });
+
+          dataChannel.addEventListener("message", (event) => {
+            try {
+              const realtimeEvent = JSON.parse(event.data);
+              handleServerEvent(realtimeEvent);
+            } catch (e) {
+              logMessage(
+                `Non-JSON message: ${event.data.substring(0, 100)}`,
+                "data",
+              );
+            }
+          });
+
+          dataChannel.addEventListener("close", () => {
+            logMessage("Data channel closed", "info");
+          });
+
+          dataChannel.addEventListener("error", (error) => {
+            logMessage(`Data channel error: ${error}`, "error");
+          });
+
+          // Connection state logging
+          peerConnection.onconnectionstatechange = () => {
+            const state = peerConnection.connectionState;
+            const type =
+              state === "connected"
+                ? "success"
+                : state === "failed"
+                  ? "error"
+                  : "info";
+            logMessage(`Connection state: ${state}`, type);
+          };
+
+          peerConnection.oniceconnectionstatechange = () => {
+            logMessage(
+              `ICE connection state: ${peerConnection.iceConnectionState}`,
+              "info",
+            );
+          };
+
+          // Create and set local description (SDP offer)
+          const offer = await peerConnection.createOffer();
+          await peerConnection.setLocalDescription(offer);
+          logMessage("WebRTC offer created", "info");
+
+          // Send SDP offer to our /connect endpoint
+          logMessage("Sending SDP offer to /connect endpoint...", "info");
+          const formData = new FormData();
+          formData.append("sdp", offer.sdp);
+
+          const connectResponse = await fetch("/connect", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!connectResponse.ok) {
+            const errorText = await connectResponse.text();
+            throw new Error(
+              `Connect failed: ${connectResponse.status} - ${errorText}`,
+            );
+          }
+
+          // Get SDP answer
+          const answerSdp = await connectResponse.text();
+          logMessage(
+            `Received SDP answer (${answerSdp.length} chars)`,
+            "success",
+          );
+
+          // Set remote description
+          const answer = { type: "answer", sdp: answerSdp };
+          await peerConnection.setRemoteDescription(answer);
+          logMessage(
+            "Remote description set - WebRTC connection established!",
+            "success",
+          );
+        } catch (error) {
+          logMessage(`Error: ${error.message}`, "error");
+          setButtonStates(false);
+          cleanupSession();
+        }
+      }
+
+      function handleServerEvent(event) {
+        const eventType = event.type || "unknown";
+
+        switch (eventType) {
+          case "session.created":
+            logMessage("Session created successfully!", "success");
+            break;
+
+          case "session.updated":
+            logMessage("Session configuration updated", "event");
+            break;
+
+          case "response.audio_transcript.delta":
+            // Streaming transcript - append to current assistant response
+            if (event.delta) {
+              appendAssistantTranscript(event.delta);
+            }
+            break;
+
+          case "response.audio_transcript.done":
+            logMessage("Audio transcript complete", "event");
+            break;
+
+          case "response.output_item.done":
+            logMessage("Response output item complete", "event");
+            break;
+
+          case "response.done":
+            logMessage("Response completed", "success");
+            finalizeAssistantTranscript();
+            break;
+
+          case "input_audio_buffer.speech_started":
+            logMessage("Speech detected - listening...", "info");
+            break;
+
+          case "input_audio_buffer.speech_stopped":
+            logMessage("Speech ended", "info");
+            break;
+
+          case "conversation.item.input_audio_transcription.completed":
+            if (event.transcript) {
+              addTranscript("user", event.transcript);
+            }
+            break;
+
+          case "error":
+            const errorMsg =
+              event.error?.message || JSON.stringify(event.error);
+            logMessage(`Server error: ${errorMsg}`, "error");
+            break;
+
+          default:
+            logMessage(`Event: ${eventType}`, "event");
+        }
+      }
+
+      // Track streaming assistant transcript
+      let currentAssistantTranscript = "";
+      let assistantTranscriptElement = null;
+
+      function appendAssistantTranscript(delta) {
+        currentAssistantTranscript += delta;
+
+        if (!assistantTranscriptElement) {
+          assistantTranscriptElement = document.createElement("div");
+          assistantTranscriptElement.className = "assistant";
+          assistantTranscriptElement.innerHTML = `<strong>Assistant:</strong> <span class="text"></span>`;
+          transcriptContainer.appendChild(assistantTranscriptElement);
+        }
+
+        const textSpan = assistantTranscriptElement.querySelector(".text");
+        textSpan.textContent = currentAssistantTranscript;
+        transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+      }
+
+      function finalizeAssistantTranscript() {
+        currentAssistantTranscript = "";
+        assistantTranscriptElement = null;
+      }
+
+      function sendTextMessage(text) {
+        if (!dataChannel || dataChannel.readyState !== "open") {
+          logMessage("Data channel not ready", "error");
+          return;
+        }
+
+        // Add user message to transcript
+        addTranscript("user", text);
+
+        // Send conversation.item.create event
+        const createEvent = {
+          type: "conversation.item.create",
+          item: {
+            type: "message",
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text: text,
+              },
+            ],
+          },
+        };
+
+        logMessage("Sending text message...", "info");
+        dataChannel.send(JSON.stringify(createEvent));
+
+        // Trigger response
+        const responseEvent = { type: "response.create" };
+        dataChannel.send(JSON.stringify(responseEvent));
+        logMessage("Response requested", "info");
+      }
+
+      function closeSession() {
+        logMessage("Closing session...", "info");
+        cleanupSession();
+        setButtonStates(false);
+        logMessage("Session closed", "success");
+      }
+
+      function cleanupSession() {
+        if (dataChannel) {
+          dataChannel.close();
+          dataChannel = null;
+        }
+        if (peerConnection) {
+          peerConnection.close();
+          peerConnection = null;
+        }
+        if (audioElement) {
+          audioElement.remove();
+          audioElement = null;
+        }
+        currentAssistantTranscript = "";
+        assistantTranscriptElement = null;
+      }
+
+      // Event listeners
+      startButton.addEventListener("click", startSession);
+      closeButton.addEventListener("click", closeSession);
+
+      sendTextButton.addEventListener("click", () => {
+        const text = textInput.value.trim();
+        if (text) {
+          sendTextMessage(text);
+          textInput.value = "";
+        }
+      });
+
+      textInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          const text = textInput.value.trim();
+          if (text) {
+            sendTextMessage(text);
+            textInput.value = "";
+          }
+        }
+      });
+
+      // Initial log
+      logMessage(
+        'WebRTC client ready. Click "Start Session" to begin.',
+        "info",
+      );
+    </script>
+  </body>
+</html>
