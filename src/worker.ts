@@ -56,7 +56,7 @@ async function fetchAzureToken(env: Env): Promise<TokenCache> {
     scope: "https://cognitiveservices.azure.com/.default",
   });
 
-  const response = await fetchWithTimeout(tokenUrl, {
+  const response = await fetchWithRetry(tokenUrl, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -137,6 +137,46 @@ async function fetchWithTimeout(
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isTransientNetworkError(error: unknown): boolean {
+  const message = String(error || "");
+  return [
+    /DNS lookup failed/i,
+    /Temporary failure in name resolution/i,
+    /ENOTFOUND/i,
+    /EAI_AGAIN/i,
+    /ECONNRESET/i,
+    /ETIMEDOUT/i,
+  ].some((pattern) => pattern.test(message));
+}
+
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  timeoutMs = 25000,
+  retries = 2,
+): Promise<Response> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await fetchWithTimeout(url, init, timeoutMs);
+    } catch (error) {
+      lastError = error;
+      if (!isTransientNetworkError(error) || attempt === retries) {
+        throw error;
+      }
+      const backoffMs = 250 * Math.pow(2, attempt) + Math.floor(Math.random() * 250);
+      await sleep(backoffMs);
+    }
+  }
+
+  throw lastError;
+}
+
 /**
  * Get ephemeral token from Azure OpenAI
  */
@@ -147,7 +187,7 @@ async function getEphemeralToken(env: Env, options: SessionOptions = {}): Promis
   const sessionConfig = buildSessionConfig(options);
 
   const url = `${baseUrl}/v1/realtime/client_secrets`;
-  const response = await fetchWithTimeout(url, {
+  const response = await fetchWithRetry(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -174,7 +214,7 @@ async function performSdpNegotiation(
   sdpOffer: string,
   baseUrl: string
 ): Promise<string> {
-  const response = await fetchWithTimeout(`${baseUrl}/v1/realtime/calls`, {
+  const response = await fetchWithRetry(`${baseUrl}/v1/realtime/calls`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${ephemeralToken}`,
