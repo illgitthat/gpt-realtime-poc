@@ -6,14 +6,14 @@ A WebSocket-based API for low-latency, "speech in, speech out" conversations wit
 
 ## Quick Start
 
-**Prerequisites:** NPM + Azure service principal credentials
+**Prerequisites:** Bun + Azure service principal credentials
 
 ```bash
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
-Open `http://localhost:8787/` and configure the endpoint/deployment.
+Open `http://localhost:8787/`. The UI uses server-provided endpoint/deployment values.
 
 Authentication:
 - Set `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` in `.dev.vars`
@@ -22,9 +22,8 @@ Cloudflare deploy:
 - `wrangler secret put AZURE_TENANT_ID`
 - `wrangler secret put AZURE_CLIENT_ID`
 - `wrangler secret put AZURE_CLIENT_SECRET`
-- `wrangler secret put AZURE_OPENAI_ENDPOINT`
 - `wrangler secret put AZURE_OPENAI_DEPLOYMENT_NAME`
-- `npm run deploy`
+- `bun run deploy`
 
 Click "Record" and start talking.
 
@@ -54,13 +53,13 @@ The API is designed for server-side use via a trusted middle tier—not direct b
 ## Using the sample
 
 1. Navigate to this folder
-2. Run `npm install` to download a small number of dependency packages (see `package.json`)
-3. Run `npm run dev` and open `http://localhost:8787/`
-5. In the "Endpoint" field, provide the resource endpoint of an Azure OpenAI resource; this does not need to append `/realtime` and an example structure might be `https://my-azure-openai-resource-from-portal.openai.azure.com`
-6. Click the "Start" button to start the session; accept any microphone permissions dialog
-7. You should see a `<< Session Started >>` message in the left-side output, after which you can speak to the app
-8. You can interrupt the chat at any time by speaking and completely stop the chat by using the "Stop" button
-9. Optionally, you can provide a System Message (e.g. try "You always talk like a friendly pirate") or a custom temperature; these will reflect upon the next session start
+2. Run `bun install` to download a small number of dependency packages (see `package.json`)
+3. Run `bun run dev` and open `http://localhost:8787/`
+4. Set `AZURE_OPENAI_ENDPOINT` (via `.dev.vars` or `wrangler secret put` for deploy)
+5. Click the "Start" button to start the session; accept any microphone permissions dialog
+6. You should see a `<< Session Started >>` message in the left-side output, after which you can speak to the app
+7. You can interrupt the chat at any time by speaking and completely stop the chat by using the "Stop" button
+8. Optionally, you can provide a System Message (e.g. try "You always talk like a friendly pirate") or a custom temperature; these will reflect upon the next session start
 
 ## Code description
 

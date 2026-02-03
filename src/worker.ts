@@ -1,6 +1,5 @@
 interface Env {
   AZURE_OPENAI_ENDPOINT: string;
-  AZURE_OPENAI_DEPLOYMENT_NAME: string;
   AZURE_TENANT_ID: string;
   AZURE_CLIENT_ID: string;
   AZURE_CLIENT_SECRET: string;
@@ -64,7 +63,7 @@ async function fetchAzureToken(env: Env): Promise<TokenCache> {
 function configPayload(env: Env) {
   return {
     azureEndpoint: env.AZURE_OPENAI_ENDPOINT || "",
-    azureDeployment: env.AZURE_OPENAI_DEPLOYMENT_NAME || "",
+    azureDeployment: "gpt-realtime",
   };
 }
 

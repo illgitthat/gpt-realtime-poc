@@ -42,9 +42,9 @@ function createAzureTokenCredential() {
   };
 }
 
-async function start_realtime(endpoint, deploymentOrModel) {
-  endpoint = endpoint || azureEndpoint;
-  deploymentOrModel = deploymentOrModel || azureDeployment;
+async function start_realtime() {
+  const endpoint = azureEndpoint;
+  const deploymentOrModel = azureDeployment;
 
   if (!endpoint || !deploymentOrModel) {
     throw new Error("Azure OpenAI endpoint and deployment are required.");
@@ -223,9 +223,6 @@ const formStopButton =
   document.querySelector("#stop-recording");
 const formClearAllButton =
   document.querySelector("#clear-all");
-const formEndpointField =
-  document.querySelector("#endpoint");
-const formDeploymentOrModelField = document.querySelector("#deployment-or-model");
 const formSessionInstructionsField =
   document.querySelector("#session-instructions");
 const formTemperatureField = document.querySelector("#temperature");
@@ -239,14 +236,7 @@ const InputState = {
   ReadyToStop: "ReadyToStop",
 };
 
-function setInitialValues() {
-  if (azureEndpoint) formEndpointField.value = azureEndpoint;
-  if (azureDeployment) formDeploymentOrModelField.value = azureDeployment;
-}
-
 function setFormInputState(state) {
-  formEndpointField.disabled = state !== InputState.ReadyToStart;
-  formDeploymentOrModelField.disabled = state !== InputState.ReadyToStart;
   formStartButton.disabled = state !== InputState.ReadyToStart;
   formStopButton.disabled = state !== InputState.ReadyToStop;
   formSessionInstructionsField.disabled = state !== InputState.ReadyToStart;
@@ -287,17 +277,14 @@ function scrollToBottom() {
 formStartButton.addEventListener("click", async () => {
   setFormInputState(InputState.Working);
 
-  const endpoint = formEndpointField.value.trim() || azureEndpoint;
-  const deploymentOrModel = formDeploymentOrModelField.value.trim() || azureDeployment;
-
-  if (!endpoint || !deploymentOrModel) {
-    alert("Endpoint and Deployment are required for Azure OpenAI");
+  if (!azureEndpoint || !azureDeployment) {
+    alert("Azure endpoint/deployment missing from server config.");
     setFormInputState(InputState.ReadyToStart);
     return;
   }
 
   try {
-    await start_realtime(endpoint, deploymentOrModel);
+    await start_realtime();
   } catch (error) {
     console.log(error);
     if (error instanceof Error) {
@@ -320,7 +307,6 @@ formClearAllButton.addEventListener("click", async () => {
   formReceivedTextContainer.innerHTML = "";
 });
 
-setInitialValues();
 const formReduceInterruptionsButton =
   document.querySelector("#reduce-interruptions");
 
