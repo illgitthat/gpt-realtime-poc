@@ -69,3 +69,9 @@ The Worker acts as the trusted middle tier for credentials and token minting.
 ## Code description
 
 The UI lives in [public/index.html](public/index.html) and negotiates WebRTC against `/connect`. The Cloudflare Worker entrypoint is [src/worker.ts](src/worker.ts).
+
+## Documentation links
+
+- https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/realtime-audio-webrtc
+- https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/realtime-audio
+- https://platform.openai.com/docs/guides/realtime-webrtc
