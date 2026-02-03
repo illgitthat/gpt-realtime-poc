@@ -266,6 +266,7 @@ For each response, provide structured feedback on:
     let dataChannel = null;
     let audioElement = null;
     let selectedStyle = 'default';
+    const pendingUserMessages = new Map();
 
     // DOM elements
     const startButton = document.getElementById("start-session");
@@ -321,9 +322,7 @@ For each response, provide structured feedback on:
       }
     }
 
-    function addTranscript(role, text) {
-      clearWelcomeMessage();
-
+    function createMessageElement(role, text) {
       const div = document.createElement("div");
       div.className = "message message-" + role;
 
@@ -354,8 +353,26 @@ For each response, provide structured feedback on:
       div.appendChild(avatar);
       div.appendChild(content);
 
-      transcriptContainer.appendChild(div);
+      return { container: div, textElement: messageText };
+    }
+
+    function addTranscript(role, text) {
+      clearWelcomeMessage();
+      const { container } = createMessageElement(role, text);
+      transcriptContainer.appendChild(container);
       transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+    }
+
+    function addUserPlaceholder(itemId) {
+      if (!itemId || pendingUserMessages.has(itemId)) {
+        return;
+      }
+      clearWelcomeMessage();
+      const { container, textElement } = createMessageElement("user", "...");
+      container.dataset.itemId = itemId;
+      transcriptContainer.appendChild(container);
+      transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+      pendingUserMessages.set(itemId, textElement);
     }
 
     function setButtonStates(sessionActive) {
@@ -529,6 +546,9 @@ For each response, provide structured feedback on:
 
         case "input_audio_buffer.speech_started":
           setStatus("connected", "Listening...");
+          if (event.item_id) {
+            addUserPlaceholder(event.item_id);
+          }
           break;
 
         case "input_audio_buffer.speech_stopped":
@@ -537,13 +557,26 @@ For each response, provide structured feedback on:
 
         case "conversation.item.input_audio_transcription.completed":
           if (event.transcript) {
-            addTranscript("user", event.transcript);
+            const pending = pendingUserMessages.get(event.item_id);
+            if (pending) {
+              pending.textContent = event.transcript;
+              pendingUserMessages.delete(event.item_id);
+            } else {
+              addTranscript("user", event.transcript);
+            }
           }
           setStatus("connected", "Connected");
           break;
 
         case "conversation.item.input_audio_transcription.failed":
           console.error("❌ User transcription FAILED:", event);
+          if (event.item_id) {
+            const pending = pendingUserMessages.get(event.item_id);
+            if (pending) {
+              pending.textContent = "Transcription unavailable.";
+              pendingUserMessages.delete(event.item_id);
+            }
+          }
           break;
 
         case "error":
@@ -611,6 +644,7 @@ For each response, provide structured feedback on:
       }
       currentAssistantTranscript = "";
       assistantTranscriptElement = null;
+      pendingUserMessages.clear();
     }
 
     function showWelcomeMessage() {
