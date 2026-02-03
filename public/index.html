@@ -99,6 +99,13 @@
                   <span class="style-desc">Practice for job interviews</span>
                 </div>
               </button>
+              <button id="language-tutor" class="style-card" type="button">
+                <div class="style-icon">🗣️</div>
+                <div class="style-info">
+                  <span class="style-name">Language Tutor</span>
+                  <span class="style-desc">Learn any language</span>
+                </div>
+              </button>
             </div>
           </div>
 
@@ -185,81 +192,14 @@
     </div>
   </div>
 
+  <script src="./prompts.js"></script>
   <script>
-    // System prompt presets
-    const defaultPrompt = '';
-
-    const reduceInterruptionsPrompt = `You are an empathetic listener. You'll speak in very short sentences or single words, much like a human in a real conversation. Also, the user may speak and have incomplete thoughts. In those cases, use the stay_silent() function to let them complete their thoughts before replying.
-
-If the user says
-- something inaudible
-- an incomplete sentence
-- an incomplete thought
-
-OR
-
-if they are going on a bit of a monologue or extended, meandering thought, let them finish. be kind.
-
-additionally, if it is a complete thought but it is ambiguous, stay silent let them clarify before asking.
-
-e.g. "can you show me" (let them specify what)
-
-e.g.
-"No, yeah doing um"
-"maybe..."
-"I really don't want it." (let the user finish this thought)
-
-or just
-[inaudible]...
-
-"Good, I need to ask you a couple things. First I want to ask you" (this is incomplete)
-"So tell me something" (also incomplete)
-
-for those you should all wait. use this function liberally. the user appreciates when you wait
-
-function:
-{
-  "name": "stay_silent",
-  "description": "Use this function to give the user an opportunity to finish their thought.",
-  "parameters": {
-    "type": "object",
-    "properties": {},
-    "required": []
-  }
-}`;
-
-    const interviewModePrompt = `You are an experienced interview coach specializing in professional career development and interview preparation. Your role is to:
-
-1. Conduct realistic mock interviews that simulate actual hiring scenarios
-2. Ask questions relevant to both the specific role and company culture
-3. Evaluate responses based on:
-   - Content clarity and completeness
-   - Professional communication style
-   - Alignment with industry standards
-   - STAR method usage for behavioral questions
-   - Technical accuracy for knowledge-based questions
-
-Before beginning the interview:
-- Confirm the target role and company
-- Ask about their experience level and interview goals
-- Explain that you'll conduct a [X]-minute interview session
-- Inform them you'll provide real-time feedback after each response
-
-During the interview:
-- Mix different question types:
-  - Behavioral/Situational
-  - Technical/Knowledge-based
-  - Company/Culture fit
-  - Role-specific scenarios
-- Maintain a professional yet supportive tone
-- Allow appropriate response time
-- Note both verbal content and communication style
-
-For each response, provide structured feedback on:
-- Strengths demonstrated
-- Areas for improvement
-- Specific suggestions for enhancement
-- Tips for better question handling`;
+    const {
+      defaultPrompt,
+      reduceInterruptionsPrompt,
+      interviewModePrompt,
+      languageTutorPrompt
+    } = window.SYSTEM_PROMPTS;
 
     // Global state
     let peerConnection = null;
@@ -286,6 +226,7 @@ For each response, provide structured feedback on:
     const defaultModeButton = document.getElementById("default-mode");
     const reduceInterruptionsButton = document.getElementById("reduce-interruptions");
     const interviewModeButton = document.getElementById("interview-mode");
+    const languageTutorButton = document.getElementById("language-tutor");
     const collapseToggles = document.querySelectorAll(".collapse-toggle");
 
     // Friendly status messages
@@ -410,6 +351,9 @@ For each response, provide structured feedback on:
       } else if (mode === 'interview') {
         interviewModeButton.classList.add('active');
         instructionsTextarea.value = interviewModePrompt;
+      } else if (mode === 'tutor') {
+        languageTutorButton.classList.add('active');
+        instructionsTextarea.value = languageTutorPrompt;
       }
 
       selectedStyle = mode;
@@ -691,6 +635,7 @@ For each response, provide structured feedback on:
     defaultModeButton.addEventListener("click", () => setActiveStyleCard('default'));
     reduceInterruptionsButton.addEventListener("click", () => setActiveStyleCard('listener'));
     interviewModeButton.addEventListener("click", () => setActiveStyleCard('interview'));
+    languageTutorButton.addEventListener("click", () => setActiveStyleCard('tutor'));
 
     // Collapsible sections
     collapseToggles.forEach(toggle => {
@@ -712,6 +657,7 @@ For each response, provide structured feedback on:
             <button class="mobile-style-btn active" data-style="default">💬 Friendly Chat</button>
             <button class="mobile-style-btn" data-style="listener">🎧 Good Listener</button>
             <button class="mobile-style-btn" data-style="interview">💼 Interview Coach</button>
+            <button class="mobile-style-btn" data-style="tutor">🗣️ Language Tutor</button>
           </div>
         </div>
         <div class="mobile-option-group">
