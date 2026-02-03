@@ -26,16 +26,68 @@ body {
   box-sizing: border-box;
 }
 
-#received-text-container {
-  flex: 6;
-  overflow-y: auto;
-  padding: 1.5rem;
-  background-color: var(--bg-input);
-  border: 1px solid var(--primary-color);
-  border-radius: var(--border-radius);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  height: calc(100vh - 2rem);
+.status-bar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #888;
 }
+
+.status-indicator {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  background: #666;
+}
+
+.status-indicator.connected {
+  background: #4ade80;
+}
+
+.status-indicator.connecting {
+  background: #fbbf24;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+#transcriptContainer {
+  background: #0f0f0f;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 16px;
+  min-height: 150px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+#transcriptContainer .user {
+  color: #6eb5ff;
+  margin: 8px 0;
+}
+
+#transcriptContainer .assistant {
+  color: #4ade80;
+  margin: 8px 0;
+}
+
+#transcriptContainer .system {
+  color: #888;
+  font-style: italic;
+  margin: 8px 0;
+}
+
 
 .controls {
   flex: 2;
@@ -95,16 +147,17 @@ body {
   margin: 0.5rem 0;
 }
 
-.toggle-group {
+.preset-buttons {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 0;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
-.toggle-group label {
-  font-weight: 500;
+.preset-buttons button {
+  font-size: 12px;
+  padding: 6px 12px;
 }
+
 
 button {
   border-radius: var(--border-radius);
@@ -143,10 +196,6 @@ button:disabled {
 @media (max-width: 768px) {
   .container {
     flex-direction: column;
-  }
-
-  #received-text-container {
-    height: 50vh;
   }
 
   .controls {

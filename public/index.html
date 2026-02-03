@@ -15,51 +15,367 @@
 
 <body>
   <div id="app">
-    <form>
-      <div class="container">
-        <div id="received-text-container"></div>
-        <div class="controls">
-          <div class="button-group">
-            <button id="start-recording" type="button">Start</button>
-            <button id="stop-recording" type="button" disabled="true">Stop</button>
-          </div>
+    <div class="container">
+      <div class="status-bar">
+        <span class="status-indicator" id="status-indicator"></span>
+        <span id="status-text">Ready to connect</span>
+      </div>
 
-          <div class="input-group">
-            <label for="session-instructions">System Message</label>
+      <div id="transcriptContainer"></div>
+
+      <div class="controls">
+        <div class="button-group">
+          <button id="start-session" type="button">Start Session</button>
+          <button id="stop-session" type="button" disabled>Stop Session</button>
+        </div>
+
+        <div class="input-group">
+          <label for="session-instructions">System Message</label>
+          <div class="preset-buttons">
             <button id="reduce-interruptions" type="button">Reduce Interruptions</button>
             <button id="interview-mode" type="button">Mock Interview</button>
-            <textarea id="session-instructions" placeholder="Optional instructions for the assistant, e.g. 'You talk like a pirate.'" rows="3"></textarea>
           </div>
+          <textarea id="session-instructions" placeholder="Optional instructions for the assistant, e.g. 'You talk like a pirate.'" rows="3"></textarea>
+        </div>
 
-          <div class="input-group">
-            <label for="temperature">Temperature</label>
-            <input id="temperature" type="number" min="0.6" max="1.2" step="0.05" value="0.8" placeholder="0.6-1.2 (default 0.8)" />
-          </div>
+        <div class="input-group">
+          <label for="voice">Voice</label>
+          <select id="voice">
+            <option value="alloy" selected>Alloy</option>
+            <option value="ash">Ash</option>
+            <option value="ballad">Ballad</option>
+            <option value="coral">Coral</option>
+            <option value="echo">Echo</option>
+            <option value="sage">Sage</option>
+            <option value="shimmer">Shimmer</option>
+            <option value="verse">Verse</option>
+          </select>
+        </div>
 
-          <div class="input-group">
-            <label for="voice">Voice</label>
-            <select id="voice">
-              <option value="">Select a voice</option>
-              <option value="alloy" selected>Alloy</option>
-              <option value="ash">Ash</option>
-              <option value="ballad">Ballad</option>
-              <option value="coral">Coral</option>
-              <option value="echo">Echo</option>
-              <option value="sage">Sage</option>
-              <option value="shimmer">Shimmer</option>
-              <option value="verse">Verse</option>
-            </select>
-          </div>
-
-          <div class="button-group">
-            <button id="clear-all" type="button">Clear all</button>
-          </div>
+        <div class="button-group">
+          <button id="clear-all" type="button">Clear Transcript</button>
         </div>
       </div>
-    </form>
+    </div>
   </div>
-  <script src="/config.js"></script>
-  <script type="module" src="./main.js"></script>
+
+  <script>
+    // System prompt presets
+    const reduceInterruptionsPrompt = `You are an empathetic listener. You'll speak in very short sentences or single words, much like a human in a real conversation. Also, the user may speak and have incomplete thoughts. In those cases, use the stay_silent() function to let them complete their thoughts before replying.
+
+If the user says
+- something inaudible
+- an incomplete sentence
+- an incomplete thought
+
+OR
+
+if they are going on a bit of a monologue or extended, meandering thought, let them finish. be kind.
+
+additionally, if it is a complete thought but it is ambiguous, stay silent let them clarify before asking.
+
+e.g. "can you show me" (let them specify what)
+
+e.g.
+"No, yeah doing um"
+"maybe..."
+"I really don't want it." (let the user finish this thought)
+
+or just
+[inaudible]...
+
+"Good, I need to ask you a couple things. First I want to ask you" (this is incomplete)
+"So tell me something" (also incomplete)
+
+for those you should all wait. use this function liberally. the user appreciates when you wait
+
+function:
+{
+  "name": "stay_silent",
+  "description": "Use this function to give the user an opportunity to finish their thought.",
+  "parameters": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  }
+}`;
+
+    const interviewModePrompt = `You are an experienced interview coach specializing in professional career development and interview preparation. Your role is to:
+
+1. Conduct realistic mock interviews that simulate actual hiring scenarios
+2. Ask questions relevant to both the specific role and company culture
+3. Evaluate responses based on:
+   - Content clarity and completeness
+   - Professional communication style
+   - Alignment with industry standards
+   - STAR method usage for behavioral questions
+   - Technical accuracy for knowledge-based questions
+
+Before beginning the interview:
+- Confirm the target role and company
+- Ask about their experience level and interview goals
+- Explain that you'll conduct a [X]-minute interview session
+- Inform them you'll provide real-time feedback after each response
+
+During the interview:
+- Mix different question types:
+  - Behavioral/Situational
+  - Technical/Knowledge-based
+  - Company/Culture fit
+  - Role-specific scenarios
+- Maintain a professional yet supportive tone
+- Allow appropriate response time
+- Note both verbal content and communication style
+
+For each response, provide structured feedback on:
+- Strengths demonstrated
+- Areas for improvement
+- Specific suggestions for enhancement
+- Tips for better question handling`;
+
+    // Global state
+    let peerConnection = null;
+    let dataChannel = null;
+    let audioElement = null;
+
+    // DOM elements
+    const startButton = document.getElementById("start-session");
+    const stopButton = document.getElementById("stop-session");
+    const voiceSelect = document.getElementById("voice");
+    const instructionsTextarea = document.getElementById("session-instructions");
+    const transcriptContainer = document.getElementById("transcriptContainer");
+    const statusIndicator = document.getElementById("status-indicator");
+    const statusText = document.getElementById("status-text");
+    const clearAllButton = document.getElementById("clear-all");
+    const reduceInterruptionsButton = document.getElementById("reduce-interruptions");
+    const interviewModeButton = document.getElementById("interview-mode");
+
+    function setStatus(status, text) {
+      statusIndicator.className = "status-indicator " + status;
+      statusText.textContent = text;
+    }
+
+    function addTranscript(role, text) {
+      const div = document.createElement("div");
+      div.className = role;
+      const label = role === "user" ? "You" : role === "assistant" ? "Assistant" : "System";
+      div.innerHTML = `<strong>${label}:</strong> ${text}`;
+      transcriptContainer.appendChild(div);
+      transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+    }
+
+    function setButtonStates(sessionActive) {
+      startButton.disabled = sessionActive;
+      stopButton.disabled = !sessionActive;
+      voiceSelect.disabled = sessionActive;
+      instructionsTextarea.disabled = sessionActive;
+      reduceInterruptionsButton.disabled = sessionActive;
+      interviewModeButton.disabled = sessionActive;
+    }
+
+    async function startSession() {
+      try {
+        setStatus("connecting", "Connecting...");
+        setButtonStates(true);
+
+        // Create RTCPeerConnection
+        peerConnection = new RTCPeerConnection();
+
+        // Get microphone access
+        const clientMedia = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioTrack = clientMedia.getAudioTracks()[0];
+        peerConnection.addTrack(audioTrack);
+
+        // Set up audio playback for remote audio
+        audioElement = document.createElement("audio");
+        audioElement.autoplay = true;
+        document.body.appendChild(audioElement);
+
+        peerConnection.ontrack = (event) => {
+          if (event.streams.length > 0) {
+            audioElement.srcObject = event.streams[0];
+          }
+        };
+
+        // Create data channel for sending/receiving events
+        dataChannel = peerConnection.createDataChannel("realtime-channel");
+
+        dataChannel.addEventListener("open", () => {
+          setStatus("connected", "Connected - listening...");
+        });
+
+        dataChannel.addEventListener("message", (event) => {
+          try {
+            const realtimeEvent = JSON.parse(event.data);
+            handleServerEvent(realtimeEvent);
+          } catch (e) {
+            console.log("Non-JSON message:", event.data.substring(0, 100));
+          }
+        });
+
+        dataChannel.addEventListener("close", () => {
+          setStatus("", "Disconnected");
+        });
+
+        dataChannel.addEventListener("error", (error) => {
+          console.error("Data channel error:", error);
+        });
+
+        // Connection state logging
+        peerConnection.onconnectionstatechange = () => {
+          const state = peerConnection.connectionState;
+          if (state === "connected") {
+            setStatus("connected", "Connected - listening...");
+          } else if (state === "failed" || state === "disconnected") {
+            setStatus("", "Connection " + state);
+          }
+        };
+
+        // Create and set local description (SDP offer)
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+
+        // Send SDP offer to /connect endpoint with session config
+        const formData = new FormData();
+        formData.append("sdp", offer.sdp);
+        formData.append("voice", voiceSelect.value);
+        formData.append("instructions", instructionsTextarea.value.trim());
+
+        const connectResponse = await fetch("/connect", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!connectResponse.ok) {
+          const errorText = await connectResponse.text();
+          throw new Error(`Connection failed: ${connectResponse.status} - ${errorText}`);
+        }
+
+        // Get SDP answer and set remote description
+        const answerSdp = await connectResponse.text();
+        const answer = { type: "answer", sdp: answerSdp };
+        await peerConnection.setRemoteDescription(answer);
+
+      } catch (error) {
+        console.error("Session error:", error);
+        addTranscript("system", `Error: ${error.message}`);
+        setStatus("", "Connection failed");
+        setButtonStates(false);
+        cleanupSession();
+      }
+    }
+
+    function handleServerEvent(event) {
+      const eventType = event.type || "unknown";
+
+      switch (eventType) {
+        case "session.created":
+          addTranscript("system", "Session started");
+          break;
+
+        case "session.updated":
+          console.log("Session configuration updated");
+          break;
+
+        case "response.audio_transcript.delta":
+          if (event.delta) {
+            appendAssistantTranscript(event.delta);
+          }
+          break;
+
+        case "response.audio_transcript.done":
+          break;
+
+        case "response.done":
+          finalizeAssistantTranscript();
+          break;
+
+        case "input_audio_buffer.speech_started":
+          setStatus("connected", "Listening...");
+          break;
+
+        case "input_audio_buffer.speech_stopped":
+          setStatus("connected", "Processing...");
+          break;
+
+        case "conversation.item.input_audio_transcription.completed":
+          if (event.transcript) {
+            addTranscript("user", event.transcript);
+          }
+          setStatus("connected", "Connected");
+          break;
+
+        case "error":
+          const errorMsg = event.error?.message || JSON.stringify(event.error);
+          addTranscript("system", `Error: ${errorMsg}`);
+          break;
+      }
+    }
+
+    // Track streaming assistant transcript
+    let currentAssistantTranscript = "";
+    let assistantTranscriptElement = null;
+
+    function appendAssistantTranscript(delta) {
+      currentAssistantTranscript += delta;
+
+      if (!assistantTranscriptElement) {
+        assistantTranscriptElement = document.createElement("div");
+        assistantTranscriptElement.className = "assistant";
+        assistantTranscriptElement.innerHTML = `<strong>Assistant:</strong> <span class="text"></span>`;
+        transcriptContainer.appendChild(assistantTranscriptElement);
+      }
+
+      const textSpan = assistantTranscriptElement.querySelector(".text");
+      textSpan.textContent = currentAssistantTranscript;
+      transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+    }
+
+    function finalizeAssistantTranscript() {
+      currentAssistantTranscript = "";
+      assistantTranscriptElement = null;
+    }
+
+    function stopSession() {
+      cleanupSession();
+      setButtonStates(false);
+      setStatus("", "Session ended");
+      addTranscript("system", "Session ended");
+    }
+
+    function cleanupSession() {
+      if (dataChannel) {
+        dataChannel.close();
+        dataChannel = null;
+      }
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+      if (audioElement) {
+        audioElement.remove();
+        audioElement = null;
+      }
+      currentAssistantTranscript = "";
+      assistantTranscriptElement = null;
+    }
+
+    // Event listeners
+    startButton.addEventListener("click", startSession);
+    stopButton.addEventListener("click", stopSession);
+
+    clearAllButton.addEventListener("click", () => {
+      transcriptContainer.innerHTML = "";
+    });
+
+    reduceInterruptionsButton.addEventListener("click", () => {
+      instructionsTextarea.value = reduceInterruptionsPrompt;
+    });
+
+    interviewModeButton.addEventListener("click", () => {
+      instructionsTextarea.value = interviewModePrompt;
+    });
+  </script>
 </body>
 
 </html>
