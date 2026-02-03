@@ -341,10 +341,42 @@
       selectedStyle = mode;
     }
 
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function fetchWithRetry(url, options, retries = 2) {
+      let lastError;
+
+      for (let attempt = 0; attempt <= retries; attempt += 1) {
+        try {
+          const response = await fetch(url, options);
+          if (!response.ok && response.status >= 500 && attempt < retries) {
+            await sleep(250 * Math.pow(2, attempt));
+            continue;
+          }
+          return response;
+        } catch (error) {
+          lastError = error;
+          if (attempt >= retries) {
+            throw error;
+          }
+          await sleep(250 * Math.pow(2, attempt));
+        }
+      }
+
+      throw lastError;
+    }
+
     async function startSession() {
       try {
         setStatus("connecting", "Connecting...");
         setButtonStates(true);
+
+        // Close mobile settings panel if open
+        if (!mobileSettingsPanel.classList.contains('hidden')) {
+          toggleMobilePanel();
+        }
 
         // Create RTCPeerConnection
         peerConnection = new RTCPeerConnection();
@@ -424,7 +456,7 @@
         formData.append("voice", voiceSelect.value);
         formData.append("instructions", instructionsTextarea.value.trim());
 
-        const connectResponse = await fetch("/connect", {
+        const connectResponse = await fetchWithRetry("/connect", {
           method: "POST",
           body: formData,
         });
@@ -694,6 +726,9 @@
 
     // Run on page load
     checkMobileAndExpandSettings();
+
+    // Initialize default prompt value
+    setActiveStyleCard('default');
   </script>
 </body>
 
