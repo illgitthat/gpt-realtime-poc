@@ -427,12 +427,26 @@ For each response, provide structured feedback on:
 
         dataChannel.addEventListener("open", () => {
           setStatus("connected", "Connected - listening...");
+
+          const sessionUpdate = {
+            type: "session.update",
+            session: {
+              type: "realtime",
+              audio: {
+                input: {
+                  transcription: {
+                    model: "gpt-4o-transcribe"
+                  }
+                }
+              }
+            }
+          };
+          dataChannel.send(JSON.stringify(sessionUpdate));
         });
 
         dataChannel.addEventListener("message", (event) => {
           try {
             const realtimeEvent = JSON.parse(event.data);
-            console.log("📥 Received event:", realtimeEvent.type, realtimeEvent);
             handleServerEvent(realtimeEvent);
           } catch (e) {
             console.log("Non-JSON message:", event.data.substring(0, 100));
@@ -499,10 +513,6 @@ For each response, provide structured feedback on:
           addTranscript("system", "Connected! Start speaking...");
           break;
 
-        case "session.updated":
-          console.log("Session configuration updated");
-          break;
-
         case "response.output_audio_transcript.delta":
           if (event.delta) {
             appendAssistantTranscript(event.delta);
@@ -510,12 +520,10 @@ For each response, provide structured feedback on:
           break;
 
         case "response.output_audio_transcript.done":
-          console.log("AI transcript complete:", event.transcript);
           finalizeAssistantTranscript();
           break;
 
         case "response.done":
-          // Note: This is filtered out by webrtcfilter=on
           finalizeAssistantTranscript();
           break;
 
@@ -528,11 +536,14 @@ For each response, provide structured feedback on:
           break;
 
         case "conversation.item.input_audio_transcription.completed":
-          console.log("🎤 User transcription:", event.transcript);
           if (event.transcript) {
             addTranscript("user", event.transcript);
           }
           setStatus("connected", "Connected");
+          break;
+
+        case "conversation.item.input_audio_transcription.failed":
+          console.error("❌ User transcription FAILED:", event);
           break;
 
         case "error":
@@ -542,7 +553,7 @@ For each response, provide structured feedback on:
           break;
 
         default:
-          console.log("Unhandled event type:", eventType, event);
+          break;
       }
     }
 

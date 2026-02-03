@@ -24,6 +24,7 @@ function buildSessionConfig(options: SessionOptions = {}) {
   const session: Record<string, unknown> = {
     type: "realtime",
     model: "gpt-realtime",
+
   };
   if (options.voice) {
     session.audio = { output: { voice: options.voice } };
@@ -173,7 +174,7 @@ async function performSdpNegotiation(
   sdpOffer: string,
   baseUrl: string
 ): Promise<string> {
-  const response = await fetchWithTimeout(`${baseUrl}/v1/realtime/calls?webrtcfilter=on`, {
+  const response = await fetchWithTimeout(`${baseUrl}/v1/realtime/calls`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${ephemeralToken}`,
