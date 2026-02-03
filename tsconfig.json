@@ -1,10 +1,21 @@
 {
     "compilerOptions": {
-      "module": "NodeNext",
-      "target": "ES2022", // Supports top-level await
-      "moduleResolution": "NodeNext",
-      "skipLibCheck": true, // Avoid type errors from node_modules
-      "strict": true // Enable strict type-checking options
+      "module": "ES2022",
+      "target": "ES2022",
+      "moduleResolution": "bundler",
+      "lib": [
+        "ES2022"
+      ],
+      "skipLibCheck": true,
+      "strict": true,
+      "noEmit": true,
+      "isolatedModules": true,
+      "allowSyntheticDefaultImports": true,
+      "forceConsistentCasingInFileNames": true
     },
-    "include": ["*.ts"]
+    "include": [
+      "src/**/*",
+      "*.ts",
+      "worker-configuration.d.ts"
+    ]
 }

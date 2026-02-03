@@ -66,7 +66,7 @@ async function fetchAzureToken(env: Env): Promise<TokenCache> {
     throw new Error(`Token request failed: ${response.status} - ${text}`);
   }
 
-  const data = await response.json();
+  const data = await response.json<{ access_token?: string; expires_in?: number }>();
   if (!data?.access_token) {
     throw new Error("Token response missing access_token.");
   }
@@ -160,7 +160,7 @@ async function getEphemeralToken(env: Env, options: SessionOptions = {}): Promis
     throw new Error(`Ephemeral token request failed: ${response.status} - ${text}`);
   }
 
-  const data = await response.json();
+  const data = await response.json<{ value?: string }>();
   if (!data.value) {
     throw new Error("No ephemeral token in response");
   }
@@ -173,7 +173,7 @@ async function performSdpNegotiation(
   sdpOffer: string,
   baseUrl: string
 ): Promise<string> {
-  const response = await fetchWithTimeout(`${baseUrl}/v1/realtime/calls`, {
+  const response = await fetchWithTimeout(`${baseUrl}/v1/realtime/calls?webrtcfilter=on`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${ephemeralToken}`,

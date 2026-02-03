@@ -432,6 +432,7 @@ For each response, provide structured feedback on:
         dataChannel.addEventListener("message", (event) => {
           try {
             const realtimeEvent = JSON.parse(event.data);
+            console.log("📥 Received event:", realtimeEvent.type, realtimeEvent);
             handleServerEvent(realtimeEvent);
           } catch (e) {
             console.log("Non-JSON message:", event.data.substring(0, 100));
@@ -502,16 +503,19 @@ For each response, provide structured feedback on:
           console.log("Session configuration updated");
           break;
 
-        case "response.audio_transcript.delta":
+        case "response.output_audio_transcript.delta":
           if (event.delta) {
             appendAssistantTranscript(event.delta);
           }
           break;
 
-        case "response.audio_transcript.done":
+        case "response.output_audio_transcript.done":
+          console.log("AI transcript complete:", event.transcript);
+          finalizeAssistantTranscript();
           break;
 
         case "response.done":
+          // Note: This is filtered out by webrtcfilter=on
           finalizeAssistantTranscript();
           break;
 
@@ -524,6 +528,7 @@ For each response, provide structured feedback on:
           break;
 
         case "conversation.item.input_audio_transcription.completed":
+          console.log("🎤 User transcription:", event.transcript);
           if (event.transcript) {
             addTranscript("user", event.transcript);
           }
@@ -532,8 +537,12 @@ For each response, provide structured feedback on:
 
         case "error":
           const errorMsg = event.error?.message || "Something went wrong";
+          console.error("❌ Error event:", event);
           addTranscript("system", `${errorMsg}`);
           break;
+
+        default:
+          console.log("Unhandled event type:", eventType, event);
       }
     }
 
