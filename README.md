@@ -2,24 +2,23 @@
 
 > **Note:** This project was originally forked from [Azure-Samples/aoai-realtime-audio-sdk](https://github.com/Azure-Samples/aoai-realtime-audio-sdk)
 
-A WebSocket-based API for low-latency, "speech in, speech out" conversations with GPT-4o. Supports text messages, function calling, and voice activity detection. Works with both Azure OpenAI and OpenAI endpoints.
+A WebSocket-based API for low-latency, "speech in, speech out" conversations with GPT-4o. Supports text messages, function calling, and voice activity detection. Azure OpenAI only.
 
 ## Quick Start
 
-**Prerequisites:** Node.js
+**Prerequisites:** Node.js + Azure CLI (for `az login`) or a service principal
 
 ```bash
-# Download the client library
-./download-pkg.sh  # or: pwsh ./download-pkg.ps1
-
-# Install and run
 npm install
-npm run dev
+npm run build
+npm start
 ```
 
-Open `http://localhost:5173/` and configure:
-- **Azure OpenAI:** Endpoint + API Key
-- **OpenAI:** API Key only
+Open `http://localhost:8787/` and configure the endpoint/deployment.
+
+Authentication:
+- Local dev: `az login`
+- Non-interactive: set `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` in `.dev.vars`
 
 Click "Record" and start talking.
 
@@ -44,23 +43,22 @@ The API is designed for server-side use via a trusted middle tier—not direct b
 
 1. Connection errors are not yet gracefully handled and looping error spew may be observed in script debug output. Please just refresh the web page if an error appears.
 2. Voice selection is not yet supported.
-3. More authentication mechanisms, including keyless support via Entra, will come in a future service update.
+3. If token acquisition fails, confirm Azure CLI login or service principal environment variables.
 
 ## Using the sample
 
 1. Navigate to this folder
 2. Run `npm install` to download a small number of dependency packages (see `package.json`)
-3. Run `npm run dev` to start the web server, navigating any firewall permissions prompts
-4. Use any of the provided URIs from the console output, e.g. `http://localhost:5173/`, in a browser
+3. Run `npm run build` to generate the Node server output
+4. Run `npm start` and open `http://localhost:8787/`
 5. In the "Endpoint" field, provide the resource endpoint of an Azure OpenAI resource; this does not need to append `/realtime` and an example structure might be `https://my-azure-openai-resource-from-portal.openai.azure.com`
-6. In the "API Key" field, provide a corresponding API key
-7. Click the "Record" button to start the session; accept any microphone permissions dialog
-8. You should see a `<< Session Started >>` message in the left-side output, after which you can speak to the app
-9. You can interrupt the chat at any time by speaking and completely stop the chat by using the "Stop" button
-10. Optionally, you can provide a System Message (e.g. try "You always talk like a friendly pirate") or a custom temperature; these will reflect upon the next session start
+6. Click the "Start" button to start the session; accept any microphone permissions dialog
+7. You should see a `<< Session Started >>` message in the left-side output, after which you can speak to the app
+8. You can interrupt the chat at any time by speaking and completely stop the chat by using the "Stop" button
+9. Optionally, you can provide a System Message (e.g. try "You always talk like a friendly pirate") or a custom temperature; these will reflect upon the next session start
 
 ## Code description
 
 This sample uses a custom modification of OpenAI's JavaScript SDK (https://github.com/openai/openai-node) to provide a new `realtime` client. As noted in the parent readme, this is an unofficial modification that's subject to change and does not represent any final surface details in the SDK.
 
-The primary file demonstrating `/realtime` use is [src/main.ts](./src/main.ts); the first few functions demonstrate connecting to `/realtime` using the client, sending an inference configuration message, and then processing the send/receive of messages on the connection.
+The primary file demonstrating `/realtime` use is [public/main.js](./public/main.js); it connects to `/realtime` using the client, sends a session update, and processes streaming messages. The local web server and token endpoint live in [server.ts](./server.ts).

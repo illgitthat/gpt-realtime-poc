@@ -1,37 +1,61 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT license.
+import { Player } from "./player.js";
+import { Recorder } from "./recorder.js";
+import { LowLevelRTClient } from "./vendor/rt-client.js";
 
-import { Player } from "./player.ts";
-import { Recorder } from "./recorder.ts";
-import "./style.css";
-import { LowLevelRTClient, SessionUpdateMessage, Voice } from "rt-client";
+let realtimeStreaming;
+let audioRecorder;
+let audioPlayer;
 
-let realtimeStreaming: LowLevelRTClient;
-let audioRecorder: Recorder;
-let audioPlayer: Player;
+const appConfig = window.__APP_CONFIG__ || {};
+const azureEndpoint = appConfig.azureEndpoint || "";
+const azureDeployment = appConfig.azureDeployment || "";
+let cachedAzureToken = null;
 
-const azureEndpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT || '';
-const azureDeployment = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT || '';
-const azureApiKey = import.meta.env.VITE_AZURE_OPENAI_API_KEY || '';
-
-async function start_realtime(endpoint: string, apiKey: string, deploymentOrModel: string) {
-  if (isAzureOpenAI()) {
-    endpoint = endpoint || azureEndpoint;
-    apiKey = apiKey || azureApiKey;
-    deploymentOrModel = deploymentOrModel || azureDeployment;
-
-    if (!endpoint || !deploymentOrModel || !apiKey) {
-      throw new Error("Azure OpenAI endpoint, deployment, and API key are required.");
-    }
-
-    realtimeStreaming = new LowLevelRTClient(new URL(endpoint), { key: apiKey }, { deployment: deploymentOrModel });
-  } else {
-    if (!apiKey || !deploymentOrModel) {
-      throw new Error("OpenAI API key and model are required.");
-    }
-
-    realtimeStreaming = new LowLevelRTClient({ key: apiKey }, { model: deploymentOrModel });
+async function fetchAzureToken() {
+  if (
+    cachedAzureToken &&
+    cachedAzureToken.expiresOnTimestamp &&
+    cachedAzureToken.expiresOnTimestamp - Date.now() > 60000
+  ) {
+    return cachedAzureToken;
   }
+
+  const response = await fetch("/token");
+  if (!response.ok) {
+    throw new Error("Unable to fetch Azure AD token.");
+  }
+  const data = await response.json();
+  if (!data || !data.token) {
+    throw new Error("Token response missing token.");
+  }
+  cachedAzureToken = {
+    token: data.token,
+    expiresOnTimestamp:
+      data.expiresOnTimestamp || Date.now() + 30 * 60 * 1000,
+  };
+  return cachedAzureToken;
+}
+
+function createAzureTokenCredential() {
+  return {
+    getToken: async () => fetchAzureToken(),
+  };
+}
+
+async function start_realtime(endpoint, deploymentOrModel) {
+  endpoint = endpoint || azureEndpoint;
+  deploymentOrModel = deploymentOrModel || azureDeployment;
+
+  if (!endpoint || !deploymentOrModel) {
+    throw new Error("Azure OpenAI endpoint and deployment are required.");
+  }
+
+  const credential = createAzureTokenCredential();
+  realtimeStreaming = new LowLevelRTClient(
+    new URL(endpoint),
+    credential,
+    { deployment: deploymentOrModel },
+  );
 
   try {
     console.log("sending session config");
@@ -46,21 +70,20 @@ async function start_realtime(endpoint: string, apiKey: string, deploymentOrMode
   await Promise.all([resetAudio(true), handleRealtimeMessages()]);
 }
 
-function createConfigMessage(): SessionUpdateMessage {
-
-  let configMessage: SessionUpdateMessage = {
+function createConfigMessage() {
+  const configMessage = {
     type: "session.update",
     session: {
       turn_detection: {
         type: "server_vad",
         threshold: 0.6,
         prefix_padding_ms: 400,
-        silence_duration_ms: 700
+        silence_duration_ms: 700,
       },
       input_audio_transcription: {
-        model: "whisper-1"
-      }
-    }
+        model: "whisper-1",
+      },
+    },
   };
 
   const systemMessage = getSystemMessage();
@@ -93,19 +116,21 @@ async function handleRealtimeMessages() {
       case "response.audio_transcript.delta":
         appendToTextBlock(message.delta);
         break;
-      case "response.audio.delta":
+      case "response.audio.delta": {
         const binary = atob(message.delta);
         const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
         const pcmData = new Int16Array(bytes.buffer);
         audioPlayer.play(pcmData);
         break;
-
+      }
       case "input_audio_buffer.speech_started":
         makeNewTextBlock("<< Speech Started >>");
-        let textElements = formReceivedTextContainer.children;
-        latestInputSpeechBlock = textElements[textElements.length - 1];
-        makeNewTextBlock();
-        audioPlayer.clear();
+        {
+          const textElements = formReceivedTextContainer.children;
+          latestInputSpeechBlock = textElements[textElements.length - 1];
+          makeNewTextBlock();
+          audioPlayer.clear();
+        }
         break;
       case "conversation.item.input_audio_transcription.completed":
         latestInputSpeechBlock.textContent += " User: " + message.transcript;
@@ -115,7 +140,7 @@ async function handleRealtimeMessages() {
         break;
       default:
         consoleLog = JSON.stringify(message, null, 2);
-        break
+        break;
     }
     if (consoleLog) {
       console.log(consoleLog);
@@ -128,18 +153,30 @@ async function handleRealtimeMessages() {
  * Basic audio handling
  */
 
-let recordingActive: boolean = false;
-let buffer: Uint8Array = new Uint8Array();
+let recordingActive = false;
+let buffer = new Uint8Array();
 
-function combineArray(newData: Uint8Array) {
+function combineArray(newData) {
   const newBuffer = new Uint8Array(buffer.length + newData.length);
   newBuffer.set(buffer);
   newBuffer.set(newData, buffer.length);
   buffer = newBuffer;
 }
 
-function processAudioRecordingBuffer(data: Buffer) {
-  const uint8Array = new Uint8Array(data);
+function processAudioRecordingBuffer(data) {
+  if (!data) {
+    return;
+  }
+
+  let uint8Array;
+  if (data instanceof ArrayBuffer) {
+    uint8Array = new Uint8Array(data);
+  } else if (ArrayBuffer.isView(data)) {
+    uint8Array = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+  } else {
+    return;
+  }
+
   combineArray(uint8Array);
   if (buffer.length >= 4800) {
     const toSend = new Uint8Array(buffer.slice(0, 4800));
@@ -153,10 +190,9 @@ function processAudioRecordingBuffer(data: Buffer) {
       });
     }
   }
-
 }
 
-async function resetAudio(startRecording: boolean) {
+async function resetAudio(startRecording) {
   recordingActive = false;
   if (audioRecorder) {
     audioRecorder.stop();
@@ -166,10 +202,10 @@ async function resetAudio(startRecording: boolean) {
   }
   audioRecorder = new Recorder(processAudioRecordingBuffer);
   audioPlayer = new Player();
-  audioPlayer.init(24000);
+  await audioPlayer.init(24000);
   if (startRecording) {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    audioRecorder.start(stream);
+    await audioRecorder.start(stream);
     recordingActive = true;
   }
 }
@@ -178,82 +214,66 @@ async function resetAudio(startRecording: boolean) {
  * UI and controls
  */
 
-const formReceivedTextContainer = document.querySelector<HTMLDivElement>(
+const formReceivedTextContainer = document.querySelector(
   "#received-text-container",
-)!;
+);
 const formStartButton =
-  document.querySelector<HTMLButtonElement>("#start-recording")!;
+  document.querySelector("#start-recording");
 const formStopButton =
-  document.querySelector<HTMLButtonElement>("#stop-recording")!;
+  document.querySelector("#stop-recording");
 const formClearAllButton =
-  document.querySelector<HTMLButtonElement>("#clear-all")!;
+  document.querySelector("#clear-all");
 const formEndpointField =
-  document.querySelector<HTMLInputElement>("#endpoint")!;
-const formAzureToggle =
-  document.querySelector<HTMLInputElement>("#azure-toggle")!;
-const formApiKeyField = document.querySelector<HTMLInputElement>("#api-key")!;
-const formDeploymentOrModelField = document.querySelector<HTMLInputElement>("#deployment-or-model")!;
+  document.querySelector("#endpoint");
+const formDeploymentOrModelField = document.querySelector("#deployment-or-model");
 const formSessionInstructionsField =
-  document.querySelector<HTMLTextAreaElement>("#session-instructions")!;
-const formTemperatureField = document.querySelector<HTMLInputElement>("#temperature")!;
-const formVoiceSelection = document.querySelector<HTMLInputElement>("#voice")!;
+  document.querySelector("#session-instructions");
+const formTemperatureField = document.querySelector("#temperature");
+const formVoiceSelection = document.querySelector("#voice");
 
-let latestInputSpeechBlock: Element;
+let latestInputSpeechBlock;
 
-enum InputState {
-  Working,
-  ReadyToStart,
-  ReadyToStop,
-}
-
-function isAzureOpenAI(): boolean {
-  return formAzureToggle.checked;
-}
-
-function guessIfIsAzureOpenAI() {
-  const endpoint = (formEndpointField.value || azureEndpoint || "").trim();
-  formAzureToggle.checked = endpoint.indexOf('azure') > -1;
-}
+const InputState = {
+  Working: "Working",
+  ReadyToStart: "ReadyToStart",
+  ReadyToStop: "ReadyToStop",
+};
 
 function setInitialValues() {
   if (azureEndpoint) formEndpointField.value = azureEndpoint;
   if (azureDeployment) formDeploymentOrModelField.value = azureDeployment;
-  if (azureApiKey) formApiKeyField.value = azureApiKey;
-  guessIfIsAzureOpenAI();
 }
 
-function setFormInputState(state: InputState) {
-  formEndpointField.disabled = state != InputState.ReadyToStart;
-  formApiKeyField.disabled = state != InputState.ReadyToStart;
-  formDeploymentOrModelField.disabled = state != InputState.ReadyToStart;
-  formStartButton.disabled = state != InputState.ReadyToStart;
-  formStopButton.disabled = state != InputState.ReadyToStop;
-  formSessionInstructionsField.disabled = state != InputState.ReadyToStart;
-  formAzureToggle.disabled = state != InputState.ReadyToStart;
+function setFormInputState(state) {
+  formEndpointField.disabled = state !== InputState.ReadyToStart;
+  formDeploymentOrModelField.disabled = state !== InputState.ReadyToStart;
+  formStartButton.disabled = state !== InputState.ReadyToStart;
+  formStopButton.disabled = state !== InputState.ReadyToStop;
+  formSessionInstructionsField.disabled = state !== InputState.ReadyToStart;
 }
 
-function getSystemMessage(): string {
+function getSystemMessage() {
   return formSessionInstructionsField.value || "";
 }
 
-function getTemperature(): number {
+function getTemperature() {
   return parseFloat(formTemperatureField.value);
 }
 
-function getVoice(): Voice {
-  return formVoiceSelection.value as Voice;
+function getVoice() {
+  return formVoiceSelection.value;
 }
 
-function makeNewTextBlock(text: string = "") {
-  let newElement = document.createElement("p");
+function makeNewTextBlock(text = "") {
+  const newElement = document.createElement("p");
   newElement.textContent = text;
   formReceivedTextContainer.appendChild(newElement);
   scrollToBottom();
 }
 
-function appendToTextBlock(text: string) {
-  let textElements = formReceivedTextContainer.children;
-  if (textElements.length == 0) {
+function appendToTextBlock(text) {
+  const textElements = formReceivedTextContainer.children;
+  if (textElements.length === 0) {
     makeNewTextBlock();
   }
   textElements[textElements.length - 1].textContent += text;
@@ -267,36 +287,23 @@ function scrollToBottom() {
 formStartButton.addEventListener("click", async () => {
   setFormInputState(InputState.Working);
 
-  let endpoint = formEndpointField.value.trim() || azureEndpoint;
-  let key = formApiKeyField.value.trim() || azureApiKey;
-  let deploymentOrModel = formDeploymentOrModelField.value.trim() || azureDeployment;
+  const endpoint = formEndpointField.value.trim() || azureEndpoint;
+  const deploymentOrModel = formDeploymentOrModelField.value.trim() || azureDeployment;
 
-  if (isAzureOpenAI() && (!endpoint || !deploymentOrModel)) {
+  if (!endpoint || !deploymentOrModel) {
     alert("Endpoint and Deployment are required for Azure OpenAI");
     setFormInputState(InputState.ReadyToStart);
     return;
   }
 
-  if (!isAzureOpenAI() && !deploymentOrModel) {
-    alert("Model is required for OpenAI");
-    setFormInputState(InputState.ReadyToStart);
-    return;
-  }
-
-  if (!key) {
-    alert("API Key is required");
-    setFormInputState(InputState.ReadyToStart);
-    return;
-  }
-
   try {
-    await start_realtime(endpoint, key, deploymentOrModel);
-  } catch (error: unknown) {
+    await start_realtime(endpoint, deploymentOrModel);
+  } catch (error) {
     console.log(error);
     if (error instanceof Error) {
       makeNewTextBlock(`[Error]: ${error.message}`);
     } else {
-      makeNewTextBlock('[Error]: An unknown error occurred');
+      makeNewTextBlock("[Error]: An unknown error occurred");
     }
     setFormInputState(InputState.ReadyToStart);
   }
@@ -313,16 +320,12 @@ formClearAllButton.addEventListener("click", async () => {
   formReceivedTextContainer.innerHTML = "";
 });
 
-formEndpointField.addEventListener('change', async () => {
-  guessIfIsAzureOpenAI();
-});
 setInitialValues();
-guessIfIsAzureOpenAI();
 const formReduceInterruptionsButton =
-  document.querySelector<HTMLButtonElement>("#reduce-interruptions")!;
+  document.querySelector("#reduce-interruptions");
 
 const formInterviewModeButton =
-  document.querySelector<HTMLButtonElement>("#interview-mode")!;
+  document.querySelector("#interview-mode");
 
 // Define system prompt for "Reduce Interruptions"
 const reduceInterruptionsSystemPrompt = `You are an empathetic listener. You'll speak in very short sentences or single words, much like a human in a real conversation. Also, the user may speak and have incomplete thoughts. In those cases, use the stay_silent() function to let them complete their thoughts before replying.
@@ -389,10 +392,10 @@ Before beginning the interview:
 
 During the interview:
 - Mix different question types:
-  • Behavioral/Situational
-  • Technical/Knowledge-based
-  • Company/Culture fit
-  • Role-specific scenarios
+  - Behavioral/Situational
+  - Technical/Knowledge-based
+  - Company/Culture fit
+  - Role-specific scenarios
 - Maintain a professional yet supportive tone
 - Allow appropriate response time
 - Note both verbal content and communication style

@@ -1,18 +1,18 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT license.
-
 export class Player {
-  private playbackNode: AudioWorkletNode | null = null;
+  constructor() {
+    this.playbackNode = null;
+  }
 
-  async init(sampleRate: number) {
+  async init(sampleRate) {
     const audioContext = new AudioContext({ sampleRate });
-    await audioContext.audioWorklet.addModule("playback-worklet.js");
+    const workletUrl = new URL("./playback-worklet.js", import.meta.url);
+    await audioContext.audioWorklet.addModule(workletUrl);
 
     this.playbackNode = new AudioWorkletNode(audioContext, "playback-worklet");
     this.playbackNode.connect(audioContext.destination);
   }
 
-  play(buffer: Int16Array) {
+  play(buffer) {
     if (this.playbackNode) {
       this.playbackNode.port.postMessage(buffer);
     }

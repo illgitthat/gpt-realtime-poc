@@ -8,9 +8,9 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Realtime API with openai-node SDK</title>
+  <title>Azure OpenAI Realtime</title>
+  <link rel="stylesheet" href="./public/style.css" />
 </head>
 
 <body>
@@ -23,16 +23,8 @@
             <label for="endpoint">Endpoint</label>
             <input id="endpoint" type="text" placeholder="Enter resource/endpoint URL" />
 
-            <div class="toggle-group">
-              <label for="azure-toggle">Azure OpenAI</label>
-              <input id="azure-toggle" type="checkbox" checked />
-            </div>
-
-            <label for="api-key">API Key</label>
-            <input id="api-key" type="password" placeholder="Enter API key" />
-
             <label for="deployment-or-model">Deployment</label>
-            <input id="deployment-or-model" type="text" placeholder="Enter deployment/model, e.g. gpt-4o-realtime-preview-2024-10-01" />
+            <input id="deployment-or-model" type="text" placeholder="Enter deployment name, e.g. gpt-4o-realtime-preview-2024-10-01" />
           </div>
 
           <div class="button-group">
@@ -49,7 +41,7 @@
 
           <div class="input-group">
             <label for="temperature">Temperature</label>
-            <input id="temperature" type="number" min="0.6" max="1.2" step="0.05" value="0.8" placeholder="0.6-1.2 (default 0.8)"/>
+            <input id="temperature" type="number" min="0.6" max="1.2" step="0.05" value="0.8" placeholder="0.6-1.2 (default 0.8)" />
           </div>
 
           <div class="input-group">
@@ -74,7 +66,8 @@
       </div>
     </form>
   </div>
-  <script type="module" src="/src/main.ts"></script>
+  <script src="./config.js"></script>
+  <script type="module" src="./public/main.js"></script>
 </body>
 
 </html>

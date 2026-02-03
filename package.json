@@ -4,24 +4,17 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "format": "prettier --write src public"
+    "build": "tsc",
+    "start": "node server.js",
+    "start:cli": "node index.js"
   },
   "devDependencies": {
-    "@types/audioworklet": "^0.0.57",
-    "@types/node": "^22.7.4",
-    "prettier": "^3.3.3",
-    "typescript": "^5.2.2",
-    "vite": "^5.4.8"
+    "@types/node": "^22.19.7",
+    "typescript": "^5.2.2"
   },
   "dependencies": {
     "@azure/identity": "^4.4.1",
+    "openai": "^6.17.0",
     "rt-client": "https://github.com/Azure-Samples/aoai-realtime-audio-sdk/releases/download/js/v0.5.0/rt-client-0.5.0.tgz"
-  },
-  "files": [
-    "dist"
-  ],
-  "types": "dist/index.d.ts"
+  }
 }
