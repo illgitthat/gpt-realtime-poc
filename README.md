@@ -6,9 +6,10 @@ A WebRTC-based sample for low-latency, "speech in, speech out" conversations wit
 
 ## Quick Start
 
-**Prerequisites:** Bun + Azure credentials (AAD service principal or API key)
-
-Set environment variables in `.dev.vars` for local dev or via `wrangler secret put` for deploy:
+**Prerequisites:**
+- Uses `gpt-realtime` model for audio and `gpt-4o-transcribe` for transcription.
+- Bun + Azure credentials (AAD service principal with access to your OpenAI resources or an API key).
+- Set environment variables in `.dev.vars` for local dev or via `wrangler secret put` for deploy:
 
 ```
 AZURE_OPENAI_BASE_URL=https://YOUR-RESOURCE-NAME.openai.azure.com
