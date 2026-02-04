@@ -90,7 +90,7 @@ async function main() {
     });
     realtimeClient.send({ type: 'response.create' });
     // While waiting for the session to finish, the events can be handled in the event handlers.
-    // In this example, we just wait for the first response.done event. 
+    // In this example, we just wait for the first response.done event.
     while (!responseDone) {
         console.log('Waiting for response.done event...');
         await new Promise((resolve) => setTimeout(resolve, 100));
