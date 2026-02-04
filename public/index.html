@@ -1,0 +1,811 @@
+<!--
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+-->
+
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice Assistant</title>
+  <link rel="stylesheet" href="./style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+  <div id="app">
+    <div class="app-container">
+      <!-- Header -->
+      <header class="app-header">
+        <div class="header-content">
+          <div class="logo">
+            <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Person's head speaking with sound waves -->
+              <circle cx="9" cy="9" r="4" fill="currentColor"/>
+              <path d="M9 14c-4 0-6 2-6 4v2h12v-2c0-2-2-4-6-4z" fill="currentColor"/>
+              <path d="M16 8.5c.8.8 1.3 2 1.3 3.2s-.5 2.4-1.3 3.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+              <path d="M19 6c1.3 1.3 2 3.1 2 5s-.7 3.7-2 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+            </svg>
+            <span class="logo-text">Voice Assistant</span>
+          </div>
+          <div class="header-right">
+            <div class="connection-status" id="connection-status">
+              <span class="status-dot" id="status-indicator"></span>
+              <span class="status-label" id="status-text">Ready</span>
+            </div>
+            <button id="header-end-chat" class="btn btn-danger btn-small hidden" type="button">
+              <svg class="btn-icon-small" viewBox="0 0 24 24" fill="none">
+                <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/>
+              </svg>
+              <span>End Chat</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <!-- Conversation Area -->
+        <section class="conversation-section">
+          <div class="conversation-container" id="transcriptContainer">
+            <div class="welcome-message">
+              <button class="welcome-icon" id="welcome-start-btn" type="button" aria-label="Start conversation">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z" fill="currentColor"/>
+                  <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V22h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="currentColor"/>
+                </svg>
+              </button>
+              <h2>Start a Conversation</h2>
+              <p>Tap the mic above to begin talking</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Control Panel -->
+        <aside class="control-panel">
+          <div class="panel-section">
+            <h3 class="panel-title">Conversation Mode</h3>
+            <div class="style-cards">
+              <button id="default-mode" class="style-card active" type="button">
+                <div class="style-icon">💬</div>
+                <div class="style-info">
+                  <span class="style-name">General Conversation</span>
+                  <span class="style-desc">Ask/Chat about anything</span>
+                </div>
+              </button>
+              <button id="interview-mode" class="style-card" type="button">
+                <div class="style-icon">💼</div>
+                <div class="style-info">
+                  <span class="style-name">Mock Interview</span>
+                  <span class="style-desc">Practice for job interviews with feedback.</span>
+                </div>
+              </button>
+              <button id="language-tutor" class="style-card" type="button">
+                <div class="style-icon">🗣️</div>
+                <div class="style-info">
+                  <span class="style-name">Language Tutor</span>
+                  <span class="style-desc">Learn any language with personalized lessons.</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div class="panel-section collapsible">
+            <button class="collapse-toggle" type="button" aria-expanded="false">
+              <h3 class="panel-title">Advanced Options</h3>
+              <svg class="chevron" viewBox="0 0 24 24" fill="none">
+                <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <div class="collapse-content">
+              <div class="option-group">
+                <label for="voice" class="option-label">Assistant Voice</label>
+                <div class="select-wrapper">
+                  <select id="voice" class="custom-select">
+                    <option value="alloy" selected>Alloy - Neutral</option>
+                    <option value="ash">Ash - Warm</option>
+                    <option value="ballad">Ballad - Expressive</option>
+                    <option value="coral">Coral - Friendly</option>
+                    <option value="echo">Echo - Clear</option>
+                    <option value="sage">Sage - Calm</option>
+                    <option value="shimmer">Shimmer - Bright</option>
+                    <option value="verse">Verse - Dynamic</option>
+                  </select>
+                  <svg class="select-arrow" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </div>
+              </div>
+
+              <div class="option-group">
+                <label for="session-instructions" class="option-label">Custom Instructions</label>
+                <textarea id="session-instructions" class="custom-textarea" placeholder="Give the assistant a personality, e.g. 'Speak like a friendly teacher'" rows="3"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-footer">
+            <button id="clear-all" class="btn btn-ghost" type="button">
+              <svg class="btn-icon-small" viewBox="0 0 24 24" fill="none">
+                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/>
+              </svg>
+              Clear Conversation
+            </button>
+          </div>
+        </aside>
+      </main>
+
+      <!-- Mobile Hero Start Button (centered, prominent) -->
+      <div class="mobile-hero-start" id="mobile-hero-start">
+        <div class="hero-mode-selector">
+          <button class="hero-mode-btn active" data-mode="default" type="button">
+            <span class="hero-mode-icon">💬</span>
+            <span class="hero-mode-name">General Conversation</span>
+          </button>
+          <button class="hero-mode-btn" data-mode="interview" type="button">
+            <span class="hero-mode-icon">💼</span>
+            <span class="hero-mode-name">Mock Interview</span>
+          </button>
+          <button class="hero-mode-btn" data-mode="tutor" type="button">
+            <span class="hero-mode-icon">🗣️</span>
+            <span class="hero-mode-name">Language Tutor</span>
+          </button>
+        </div>
+        <button class="hero-mic-btn" id="hero-mic-btn" type="button" aria-label="Start conversation">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z" fill="currentColor"/>
+            <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V22h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="currentColor"/>
+          </svg>
+        </button>
+        <span class="hero-label">Tap to start</span>
+      </div>
+
+      <!-- Mobile Controls (visible on small screens during conversation) -->
+      <div class="mobile-fab">
+        <button id="mobile-start" class="fab fab-primary hidden" type="button" aria-label="Start conversation">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z" fill="currentColor"/>
+            <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V22h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="currentColor"/>
+          </svg>
+        </button>
+        <button id="mobile-stop" class="fab fab-danger hidden" type="button" aria-label="Stop conversation">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/>
+          </svg>
+        </button>
+        <button id="mobile-settings" class="fab fab-secondary" type="button" aria-label="Settings">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" fill="currentColor"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Mobile Settings Panel -->
+      <div class="mobile-settings-panel hidden" id="mobile-settings-panel">
+        <div class="mobile-panel-header">
+          <h3>Settings</h3>
+          <button class="close-panel" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
+        <div class="mobile-panel-content">
+          <!-- Content populated by JS -->
+        </div>
+      </div>
+      <div class="mobile-panel-overlay hidden" id="mobile-panel-overlay"></div>
+    </div>
+  </div>
+
+  <script src="./prompts.js"></script>
+  <script>
+    const {
+      defaultPrompt,
+      interviewModePrompt,
+      languageTutorPrompt
+    } = window.SYSTEM_PROMPTS;
+
+    // Global state
+    let peerConnection = null;
+    let dataChannel = null;
+    let audioElement = null;
+    let selectedStyle = 'default';
+    const pendingUserMessages = new Map();
+
+    // DOM elements
+    const headerEndChatBtn = document.getElementById("header-end-chat");
+    const mobileStartButton = document.getElementById("mobile-start");
+    const mobileStopButton = document.getElementById("mobile-stop");
+    const mobileSettingsButton = document.getElementById("mobile-settings");
+    const mobileSettingsPanel = document.getElementById("mobile-settings-panel");
+    const mobilePanelOverlay = document.getElementById("mobile-panel-overlay");
+    const voiceSelect = document.getElementById("voice");
+    const instructionsTextarea = document.getElementById("session-instructions");
+    const transcriptContainer = document.getElementById("transcriptContainer");
+    const statusIndicator = document.getElementById("status-indicator");
+    const statusText = document.getElementById("status-text");
+    const connectionStatus = document.getElementById("connection-status");
+    const clearAllButton = document.getElementById("clear-all");
+    const defaultModeButton = document.getElementById("default-mode");
+    const interviewModeButton = document.getElementById("interview-mode");
+    const languageTutorButton = document.getElementById("language-tutor");
+    const collapseToggles = document.querySelectorAll(".collapse-toggle");
+    const welcomeStartBtn = document.getElementById("welcome-start-btn");
+
+    // Friendly status messages
+    const statusMessages = {
+      ready: "Ready",
+      connecting: "Connecting...",
+      connected: "Listening",
+      processing: "Thinking...",
+      speaking: "Speaking",
+      disconnected: "Disconnected",
+      error: "Connection issue"
+    };
+
+    function setStatus(status, text) {
+      statusIndicator.className = "status-dot " + status;
+      connectionStatus.className = "connection-status " + status;
+
+      // Use friendly text
+      let friendlyText = text;
+      if (text === "Connected - listening...") friendlyText = statusMessages.connected;
+      else if (text === "Processing...") friendlyText = statusMessages.processing;
+      else if (text === "Listening...") friendlyText = statusMessages.connected;
+      else if (text === "Ready to connect") friendlyText = statusMessages.ready;
+      else if (text === "Connection failed") friendlyText = statusMessages.error;
+      else if (text === "Ready") friendlyText = statusMessages.ready;
+
+      statusText.textContent = friendlyText;
+    }
+
+    function clearWelcomeMessage() {
+      const welcome = transcriptContainer.querySelector('.welcome-message');
+      if (welcome) {
+        welcome.remove();
+      }
+    }
+
+    function createMessageElement(role, text) {
+      const div = document.createElement("div");
+      div.className = "message message-" + role;
+
+      const avatar = document.createElement("div");
+      avatar.className = "message-avatar";
+
+      if (role === "user") {
+        avatar.innerHTML = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/></svg>`;
+      } else if (role === "assistant") {
+        avatar.innerHTML = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" fill="currentColor"/></svg>`;
+      } else {
+        avatar.innerHTML = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" fill="currentColor"/></svg>`;
+      }
+
+      const content = document.createElement("div");
+      content.className = "message-content";
+
+      const label = document.createElement("span");
+      label.className = "message-label";
+      label.textContent = role === "user" ? "You" : role === "assistant" ? "Assistant" : "Info";
+
+      const messageText = document.createElement("p");
+      messageText.className = "message-text";
+      messageText.textContent = text;
+
+      content.appendChild(label);
+      content.appendChild(messageText);
+      div.appendChild(avatar);
+      div.appendChild(content);
+
+      return { container: div, textElement: messageText };
+    }
+
+    function addTranscript(role, text) {
+      clearWelcomeMessage();
+      const { container } = createMessageElement(role, text);
+      transcriptContainer.appendChild(container);
+      transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+    }
+
+    function addUserPlaceholder(itemId) {
+      if (!itemId || pendingUserMessages.has(itemId)) {
+        return;
+      }
+      clearWelcomeMessage();
+      const { container, textElement } = createMessageElement("user", "...");
+      container.dataset.itemId = itemId;
+      transcriptContainer.appendChild(container);
+      transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+      pendingUserMessages.set(itemId, textElement);
+    }
+
+    function setButtonStates(sessionActive) {
+      voiceSelect.disabled = sessionActive;
+      instructionsTextarea.disabled = sessionActive;
+
+      // Header end chat button
+      if (sessionActive) {
+        headerEndChatBtn.classList.remove('hidden');
+      } else {
+        headerEndChatBtn.classList.add('hidden');
+      }
+
+      // Mobile buttons - show/hide hero and FABs appropriately
+      if (sessionActive) {
+        mobileHeroStart?.classList.add('hidden');
+        mobileStartButton.classList.add('hidden');
+        mobileStopButton.classList.remove('hidden');
+      } else {
+        // Show hero only if no conversation yet
+        const hasConversation = transcriptContainer.querySelectorAll('.message').length > 0;
+        if (hasConversation) {
+          mobileHeroStart?.classList.add('hidden');
+          mobileStartButton.classList.remove('hidden');
+        } else {
+          mobileHeroStart?.classList.remove('hidden');
+          mobileStartButton.classList.add('hidden');
+        }
+        mobileStopButton.classList.add('hidden');
+      }
+
+      // Style cards
+      document.querySelectorAll('.style-card').forEach(card => {
+        card.disabled = sessionActive;
+      });
+    }
+
+    function setActiveStyleCard(mode) {
+      document.querySelectorAll('.style-card').forEach(card => {
+        card.classList.remove('active');
+      });
+
+      if (mode === 'default') {
+        defaultModeButton.classList.add('active');
+        instructionsTextarea.value = defaultPrompt;
+      } else if (mode === 'interview') {
+        interviewModeButton.classList.add('active');
+        instructionsTextarea.value = interviewModePrompt;
+      } else if (mode === 'tutor') {
+        languageTutorButton.classList.add('active');
+        instructionsTextarea.value = languageTutorPrompt;
+      }
+
+      selectedStyle = mode;
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function fetchWithRetry(url, options, retries = 2) {
+      let lastError;
+
+      for (let attempt = 0; attempt <= retries; attempt += 1) {
+        try {
+          const response = await fetch(url, options);
+          if (!response.ok && response.status >= 500 && attempt < retries) {
+            await sleep(250 * Math.pow(2, attempt));
+            continue;
+          }
+          return response;
+        } catch (error) {
+          lastError = error;
+          if (attempt >= retries) {
+            throw error;
+          }
+          await sleep(250 * Math.pow(2, attempt));
+        }
+      }
+
+      throw lastError;
+    }
+
+    async function startSession() {
+      try {
+        setStatus("connecting", "Connecting...");
+        setButtonStates(true);
+
+        // Close mobile settings panel if open
+        if (!mobileSettingsPanel.classList.contains('hidden')) {
+          toggleMobilePanel();
+        }
+
+        // Create RTCPeerConnection
+        peerConnection = new RTCPeerConnection();
+
+        // Get microphone access
+        const clientMedia = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioTrack = clientMedia.getAudioTracks()[0];
+        peerConnection.addTrack(audioTrack);
+
+        // Set up audio playback for remote audio
+        audioElement = document.createElement("audio");
+        audioElement.autoplay = true;
+        document.body.appendChild(audioElement);
+
+        peerConnection.ontrack = (event) => {
+          if (event.streams.length > 0) {
+            audioElement.srcObject = event.streams[0];
+          }
+        };
+
+        // Create data channel for sending/receiving events
+        dataChannel = peerConnection.createDataChannel("realtime-channel");
+
+        dataChannel.addEventListener("open", () => {
+          setStatus("connected", "Connected - listening...");
+
+          const sessionUpdate = {
+            type: "session.update",
+            session: {
+              type: "realtime",
+              audio: {
+                input: {
+                  transcription: {
+                    model: "gpt-4o-transcribe"
+                  }
+                }
+              }
+            }
+          };
+          dataChannel.send(JSON.stringify(sessionUpdate));
+        });
+
+        dataChannel.addEventListener("message", (event) => {
+          try {
+            const realtimeEvent = JSON.parse(event.data);
+            handleServerEvent(realtimeEvent);
+          } catch (e) {
+            console.log("Non-JSON message:", event.data.substring(0, 100));
+          }
+        });
+
+        dataChannel.addEventListener("close", () => {
+          setStatus("", "Disconnected");
+        });
+
+        dataChannel.addEventListener("error", (error) => {
+          console.error("Data channel error:", error);
+        });
+
+        // Connection state logging
+        peerConnection.onconnectionstatechange = () => {
+          const state = peerConnection.connectionState;
+          if (state === "connected") {
+            setStatus("connected", "Connected - listening...");
+          } else if (state === "failed" || state === "disconnected") {
+            setStatus("", "Connection " + state);
+          }
+        };
+
+        // Create and set local description (SDP offer)
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+
+        // Send SDP offer to /connect endpoint with session config
+        const formData = new FormData();
+        formData.append("sdp", offer.sdp);
+        formData.append("voice", voiceSelect.value);
+        formData.append("instructions", instructionsTextarea.value.trim());
+
+        const connectResponse = await fetchWithRetry("/connect", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!connectResponse.ok) {
+          const errorText = await connectResponse.text();
+          throw new Error(`Connection failed: ${connectResponse.status} - ${errorText}`);
+        }
+
+        // Get SDP answer and set remote description
+        const answerSdp = await connectResponse.text();
+        const answer = { type: "answer", sdp: answerSdp };
+        await peerConnection.setRemoteDescription(answer);
+
+      } catch (error) {
+        console.error("Session error:", error);
+        addTranscript("system", `Unable to connect. Please try again.`);
+        setStatus("", "Connection failed");
+        setButtonStates(false);
+        cleanupSession();
+      }
+    }
+
+    function handleServerEvent(event) {
+      const eventType = event.type || "unknown";
+
+      switch (eventType) {
+        case "session.created":
+          addTranscript("system", "Connected! Start speaking...");
+          break;
+
+        case "response.output_audio_transcript.delta":
+          if (event.delta) {
+            appendAssistantTranscript(event.delta);
+          }
+          break;
+
+        case "response.output_audio_transcript.done":
+          finalizeAssistantTranscript();
+          break;
+
+        case "response.done":
+          finalizeAssistantTranscript();
+          break;
+
+        case "input_audio_buffer.speech_started":
+          setStatus("connected", "Listening...");
+          if (event.item_id) {
+            addUserPlaceholder(event.item_id);
+          }
+          break;
+
+        case "input_audio_buffer.speech_stopped":
+          setStatus("connected", "Processing...");
+          break;
+
+        case "conversation.item.input_audio_transcription.completed":
+          if (event.transcript) {
+            const pending = pendingUserMessages.get(event.item_id);
+            if (pending) {
+              pending.textContent = event.transcript;
+              pendingUserMessages.delete(event.item_id);
+            } else {
+              addTranscript("user", event.transcript);
+            }
+          }
+          setStatus("connected", "Connected");
+          break;
+
+        case "conversation.item.input_audio_transcription.failed":
+          console.error("❌ User transcription FAILED:", event);
+          if (event.item_id) {
+            const pending = pendingUserMessages.get(event.item_id);
+            if (pending) {
+              pending.textContent = "Transcription unavailable.";
+              pendingUserMessages.delete(event.item_id);
+            }
+          }
+          break;
+
+        case "error":
+          const errorMsg = event.error?.message || "Something went wrong";
+          console.error("❌ Error event:", event);
+          addTranscript("system", `${errorMsg}`);
+          break;
+
+        default:
+          break;
+      }
+    }
+
+    // Track streaming assistant transcript
+    let currentAssistantTranscript = "";
+    let assistantTranscriptElement = null;
+
+    function appendAssistantTranscript(delta) {
+      clearWelcomeMessage();
+      currentAssistantTranscript += delta;
+
+      if (!assistantTranscriptElement) {
+        assistantTranscriptElement = document.createElement("div");
+        assistantTranscriptElement.className = "message message-assistant";
+        assistantTranscriptElement.innerHTML = `
+          <div class="message-avatar">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" fill="currentColor"/></svg>
+          </div>
+          <div class="message-content">
+            <span class="message-label">Assistant</span>
+            <p class="message-text text"></p>
+          </div>`;
+        transcriptContainer.appendChild(assistantTranscriptElement);
+      }
+
+      const textSpan = assistantTranscriptElement.querySelector(".text");
+      textSpan.textContent = currentAssistantTranscript;
+      transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+    }
+
+    function finalizeAssistantTranscript() {
+      currentAssistantTranscript = "";
+      assistantTranscriptElement = null;
+    }
+
+    function stopSession() {
+      cleanupSession();
+      setButtonStates(false);
+      setStatus("", "Ready");
+      addTranscript("system", "Conversation ended");
+    }
+
+    function cleanupSession() {
+      if (dataChannel) {
+        dataChannel.close();
+        dataChannel = null;
+      }
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+      if (audioElement) {
+        audioElement.remove();
+        audioElement = null;
+      }
+      currentAssistantTranscript = "";
+      assistantTranscriptElement = null;
+      pendingUserMessages.clear();
+    }
+
+    function showWelcomeMessage() {
+      if (transcriptContainer.children.length === 0) {
+        transcriptContainer.innerHTML = `
+          <div class="welcome-message">
+            <button class="welcome-icon" id="welcome-start-btn" type="button" aria-label="Start conversation">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z" fill="currentColor"/>
+                <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V22h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="currentColor"/>
+              </svg>
+            </button>
+            <h2>Start a Conversation</h2>
+            <p>Tap the mic above to begin talking</p>
+          </div>`;
+        // Re-attach event listener for dynamically created button
+        document.getElementById('welcome-start-btn')?.addEventListener('click', startSession);
+      }
+    }
+
+    function toggleMobilePanel() {
+      mobileSettingsPanel.classList.toggle('hidden');
+      mobilePanelOverlay.classList.toggle('hidden');
+      document.body.classList.toggle('panel-open');
+    }
+
+    // Event listeners
+    headerEndChatBtn.addEventListener("click", stopSession);
+    mobileStartButton.addEventListener("click", startSession);
+    mobileStopButton.addEventListener("click", stopSession);
+    welcomeStartBtn.addEventListener("click", startSession);
+
+    const mobileHeroStart = document.getElementById("mobile-hero-start");
+    const heroMicBtn = document.getElementById("hero-mic-btn");
+
+    // Hero mode selector buttons
+    document.querySelectorAll('.hero-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.hero-mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        setActiveStyleCard(btn.dataset.mode);
+
+        // Also sync mobile panel if it exists
+        const mobileBtns = document.querySelectorAll('.mobile-style-btn');
+        mobileBtns.forEach(b => {
+          b.classList.remove('active');
+          if (b.dataset.style === btn.dataset.mode) b.classList.add('active');
+        });
+      });
+    });
+
+    heroMicBtn.addEventListener("click", startSession);
+    mobileSettingsButton.addEventListener("click", toggleMobilePanel);
+    mobilePanelOverlay.addEventListener("click", toggleMobilePanel);
+
+    const closePanelBtn = document.querySelector(".close-panel");
+    if (closePanelBtn) {
+      closePanelBtn.addEventListener("click", toggleMobilePanel);
+    }
+
+    clearAllButton.addEventListener("click", () => {
+      transcriptContainer.innerHTML = "";
+      showWelcomeMessage();
+    });
+
+    defaultModeButton.addEventListener("click", () => setActiveStyleCard('default'));
+    interviewModeButton.addEventListener("click", () => setActiveStyleCard('interview'));
+    languageTutorButton.addEventListener("click", () => setActiveStyleCard('tutor'));
+
+    // Collapsible sections
+    collapseToggles.forEach(toggle => {
+      toggle.addEventListener("click", () => {
+        const section = toggle.closest('.collapsible');
+        const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+        toggle.setAttribute('aria-expanded', !isExpanded);
+        section.classList.toggle('expanded');
+      });
+    });
+
+    // Populate mobile settings panel
+    const mobileContent = document.querySelector('.mobile-panel-content');
+    if (mobileContent) {
+      mobileContent.innerHTML = `
+        <div class="mobile-option-group">
+          <label>Conversation Style</label>
+          <div class="mobile-style-options">
+            <button class="mobile-style-btn active" data-style="default">💬 General Conversation</button>
+            <button class="mobile-style-btn" data-style="interview">💼 Interview Coach</button>
+            <button class="mobile-style-btn" data-style="tutor">🗣️ Language Tutor</button>
+          </div>
+        </div>
+        <div class="mobile-option-group">
+          <label>Voice</label>
+          <select class="mobile-voice-select">
+            <option value="alloy">Alloy - Neutral</option>
+            <option value="ash">Ash - Warm</option>
+            <option value="ballad">Ballad - Expressive</option>
+            <option value="coral">Coral - Friendly</option>
+            <option value="echo">Echo - Clear</option>
+            <option value="sage">Sage - Calm</option>
+            <option value="shimmer">Shimmer - Bright</option>
+            <option value="verse">Verse - Dynamic</option>
+          </select>
+        </div>
+        <button class="mobile-clear-btn">Clear Conversation</button>
+      `;
+
+      // Sync mobile style buttons
+      mobileContent.querySelectorAll('.mobile-style-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          mobileContent.querySelectorAll('.mobile-style-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          setActiveStyleCard(btn.dataset.style);
+        });
+      });
+
+      // Sync mobile voice select
+      const mobileVoice = mobileContent.querySelector('.mobile-voice-select');
+      mobileVoice.addEventListener('change', (e) => {
+        voiceSelect.value = e.target.value;
+      });
+
+      // Mobile clear button
+      mobileContent.querySelector('.mobile-clear-btn').addEventListener('click', () => {
+        transcriptContainer.innerHTML = "";
+        showWelcomeMessage();
+        toggleMobilePanel();
+      });
+    }
+
+    // Track if conversation has started for UI state
+    let conversationStarted = false;
+
+    function updateClearButtonVisibility() {
+      const hasMsgs = transcriptContainer.querySelectorAll('.message').length > 0;
+      conversationStarted = hasMsgs;
+
+      // Desktop clear button
+      if (hasMsgs) {
+        clearAllButton.classList.remove('hidden');
+      } else {
+        clearAllButton.classList.add('hidden');
+      }
+
+      // Mobile clear button
+      const mobileClearBtn = document.querySelector('.mobile-clear-btn');
+      if (mobileClearBtn) {
+        if (hasMsgs) {
+          mobileClearBtn.classList.remove('hidden');
+        } else {
+          mobileClearBtn.classList.add('hidden');
+        }
+      }
+    }
+
+    // Override addTranscript to update clear button visibility
+    const originalAddTranscript = addTranscript;
+    addTranscript = function(role, text) {
+      originalAddTranscript(role, text);
+      updateClearButtonVisibility();
+    };
+
+    // Initialize default prompt value and UI state
+    setActiveStyleCard('default');
+    updateClearButtonVisibility();
+  </script>
+</body>
+
+</html>

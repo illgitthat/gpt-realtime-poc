@@ -1,0 +1,23 @@
+{
+  "name": "realtime-sample-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "wrangler dev --port 8787",
+    "deploy": "node ./scripts/deploy-with-domain.mjs",
+    "deploy:domain": "node ./scripts/deploy-with-domain.mjs",
+    "deploy:plain": "wrangler deploy",
+    "start:cli": "bun index.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.7",
+    "typescript": "^5.2.2",
+    "wrangler": "^4.62.0"
+  },
+  "dependencies": {
+    "@azure/identity": "^4.4.1",
+    "openai": "^6.17.0"
+  }
+}
