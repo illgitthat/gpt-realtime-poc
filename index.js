@@ -103,7 +103,6 @@ function receiveError(errorEvent) {
         console.error('Received an error event.');
         console.error(`Message: ${errorEvent.message}`);
         console.error(`Stack: ${errorEvent.stack}`);
-        errorEvent;
     }
     if (throwOnError) {
         throw errorEvent;

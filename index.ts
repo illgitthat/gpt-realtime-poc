@@ -119,7 +119,7 @@ function receiveError(errorEvent: OpenAIRealtimeError): void {
     if (errorEvent instanceof OpenAIRealtimeError) {
         console.error('Received an error event.');
         console.error(`Message: ${errorEvent.message}`);
-        console.error(`Stack: ${errorEvent.stack}`); errorEvent
+        console.error(`Stack: ${errorEvent.stack}`);
     }
 
     if (throwOnError) {
