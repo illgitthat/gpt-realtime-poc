@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "voice-adamcbloom",
+  "name": "gpt-realtime-poc",
   "main": "src/worker.ts",
   "compatibility_date": "2026-02-03",
   "workers_dev": true,
@@ -14,11 +14,5 @@
       "enabled": true,
       "invocation_logs": true
     }
-  },
-  "routes": [
-    {
-      "pattern": "voice.adamcbloom.com",
-      "custom_domain": true
-    }
-  ]
+  }
 }

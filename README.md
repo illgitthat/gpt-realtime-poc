@@ -8,17 +8,13 @@ A WebRTC-based sample for low-latency, "speech in, speech out" conversations wit
 
 **Prerequisites:** Bun + Azure credentials (AAD service principal or API key)
 
-```bash
-bun install
-bun run dev
-```
-
-Open `http://localhost:8787/`.
-
 Set environment variables in `.dev.vars` for local dev or via `wrangler secret put` for deploy:
 
 ```
 AZURE_OPENAI_BASE_URL=https://YOUR-RESOURCE-NAME.openai.azure.com
+
+# Optional: custom domain for deploy (gitignored)
+WORKER_DOMAIN=voice.example.com
 
 # Option A: Azure AD (service principal)
 AZURE_TENANT_ID=...
@@ -37,10 +33,22 @@ wrangler secret put AZURE_TENANT_ID
 wrangler secret put AZURE_CLIENT_ID
 wrangler secret put AZURE_CLIENT_SECRET
 wrangler secret put AZURE_OPENAI_API_KEY
+
+# Deploy with a custom domain from .dev.vars
 bun run deploy
+
+# Deploy without a custom domain
+bun run deploy:plain
 ```
 
-Click "Start" and begin speaking.
+Local dev:
+
+```bash
+bun install
+bun run dev
+```
+
+Open `http://localhost:8787/`, click "Start", and begin speaking.
 
 ## API Overview
 
@@ -57,14 +65,6 @@ Browser <-> Cloudflare Worker <-> Azure OpenAI /realtime
 ```
 
 The Worker acts as the trusted middle tier for credentials and token minting.
-
-## Using the sample
-
-1. Run `bun install`.
-2. Set `AZURE_OPENAI_BASE_URL` plus either AAD or API key credentials.
-3. Run `bun run dev` and open `http://localhost:8787/`.
-4. Click the "Start" button and accept microphone permissions.
-5. Choose a voice and instructions before connecting; they are sent in the SDP negotiation.
 
 ## Code description
 

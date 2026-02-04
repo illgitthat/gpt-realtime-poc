@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc",
     "dev": "wrangler dev --port 8787",
-    "deploy": "wrangler deploy",
+    "deploy": "node ./scripts/deploy-with-domain.mjs",
+    "deploy:domain": "node ./scripts/deploy-with-domain.mjs",
+    "deploy:plain": "wrangler deploy",
     "start:cli": "bun index.js"
   },
   "devDependencies": {
@@ -16,7 +18,6 @@
   },
   "dependencies": {
     "@azure/identity": "^4.4.1",
-    "openai": "^6.17.0",
-    "rt-client": "https://github.com/Azure-Samples/aoai-realtime-audio-sdk/releases/download/js/v0.5.0/rt-client-0.5.0.tgz"
+    "openai": "^6.17.0"
   }
 }
