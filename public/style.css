@@ -753,6 +753,146 @@ body.panel-open {
 }
 
 /* ============================================
+   Mobile Hero Start Button
+   ============================================ */
+.mobile-hero-start {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: var(--space-xl) var(--space-lg);
+  padding-bottom: calc(var(--space-2xl) + env(safe-area-inset-bottom, 0px));
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  z-index: var(--z-fab);
+  background: linear-gradient(to top,
+    rgba(248, 250, 252, 0.98) 0%,
+    rgba(248, 250, 252, 0.95) 50%,
+    rgba(248, 250, 252, 0) 100%
+  );
+}
+
+.hero-mic-btn {
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow:
+    0 8px 32px rgba(139, 92, 246, 0.4),
+    0 4px 12px rgba(139, 92, 246, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: all var(--transition-base);
+  animation: heroMicPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes heroMicPulse {
+  0%, 100% {
+    box-shadow:
+      0 8px 32px rgba(139, 92, 246, 0.4),
+      0 4px 12px rgba(139, 92, 246, 0.3),
+      0 0 0 0 rgba(139, 92, 246, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow:
+      0 12px 40px rgba(139, 92, 246, 0.5),
+      0 6px 16px rgba(139, 92, 246, 0.4),
+      0 0 0 16px rgba(139, 92, 246, 0);
+    transform: scale(1.02);
+  }
+}
+
+.hero-mic-btn:hover {
+  transform: scale(1.08);
+  box-shadow:
+    0 12px 40px rgba(139, 92, 246, 0.5),
+    0 6px 16px rgba(139, 92, 246, 0.4);
+  animation: none;
+}
+
+.hero-mic-btn:active {
+  transform: scale(0.96);
+}
+
+.hero-mic-btn svg {
+  width: 40px;
+  height: 40px;
+}
+
+.hero-label {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.01em;
+}
+
+/* Hero Mode Selector */
+.hero-mode-selector {
+  display: flex;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  width: 100%;
+  max-width: 340px;
+}
+
+.hero-mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: var(--space-sm) var(--space-xs);
+  border: 2px solid transparent;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+.hero-mode-btn:hover {
+  background: rgba(139, 92, 246, 0.08);
+}
+
+.hero-mode-btn.active {
+  background: white;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.hero-mode-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.hero-mode-name {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  line-height: 1.2;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+.hero-mode-btn.active .hero-mode-name {
+  color: var(--color-primary);
+}
+
+/* ============================================
    Mobile FAB (Floating Action Buttons)
    ============================================ */
 .mobile-fab {
@@ -763,7 +903,7 @@ body.panel-open {
   z-index: var(--z-fab);
   gap: var(--space-sm);
   flex-direction: column-reverse;
-  align-items: flex-end;
+  align-items: center;
 }
 
 .fab {
@@ -800,8 +940,8 @@ body.panel-open {
 }
 
 .fab-secondary {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   background: var(--color-bg-card);
   color: var(--color-text-secondary);
 }
@@ -1004,6 +1144,10 @@ body.panel-open {
   }
 
   .mobile-fab {
+    display: flex;
+  }
+
+  .mobile-hero-start:not(.hidden) {
     display: flex;
   }
 
