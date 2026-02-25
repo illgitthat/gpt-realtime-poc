@@ -51,7 +51,7 @@ function readDeploymentToken(appName, resourceGroup) {
 
 const deploymentToken = readDeploymentToken(DEFAULT_APP_NAME, DEFAULT_RESOURCE_GROUP);
 
-run("npx", [
+run("bunx", [
   "swa",
   "deploy",
   "--app-name",

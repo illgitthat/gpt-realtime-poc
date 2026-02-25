@@ -53,8 +53,8 @@ Open `http://localhost:8787/`.
 Azure SWA emulator local dev:
 
 ```bash
-npm install
-npm run dev:swa
+bun install
+bun run dev:swa
 ```
 
 Open `http://localhost:4280/`.
@@ -82,7 +82,7 @@ bun run deploy:plain
 ```bash
 az login
 gh auth login
-npm run setup:swa
+bun run setup:swa
 ```
 
 `setup:swa` does the following:
@@ -114,7 +114,7 @@ This repo includes a stable workflow at `.github/workflows/azure-static-web-apps
 ### 3. Optional direct CLI deploy
 
 ```bash
-npm run deploy:swa
+bun run deploy:swa
 ```
 
 This deploys with SWA deployment token auth and defaults to:
