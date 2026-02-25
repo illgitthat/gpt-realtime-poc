@@ -1,0 +1,21 @@
+{
+  "routes": [
+    {
+      "route": "/connect",
+      "rewrite": "/api/connect"
+    }
+  ],
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/api/*",
+      "/connect",
+      "/*.css",
+      "/*.js",
+      "/favicon.ico"
+    ]
+  },
+  "platform": {
+    "apiRuntime": "node:20"
+  }
+}

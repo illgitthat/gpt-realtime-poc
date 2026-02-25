@@ -6,12 +6,15 @@
   "scripts": {
     "build": "tsc",
     "dev": "wrangler dev --port 8787",
+    "dev:swa": "swa start",
     "deploy": "node ./scripts/deploy-with-domain.mjs",
     "deploy:domain": "node ./scripts/deploy-with-domain.mjs",
     "deploy:plain": "wrangler deploy",
+    "deploy:swa": "node ./scripts/deploy-swa.mjs",
     "start:cli": "bun index.js"
   },
   "devDependencies": {
+    "@azure/static-web-apps-cli": "^2.0.8",
     "@types/node": "^22.19.11",
     "typescript": "^5.9.3",
     "wrangler": "^4.68.1"

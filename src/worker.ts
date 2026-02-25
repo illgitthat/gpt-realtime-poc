@@ -20,6 +20,12 @@ interface SessionOptions {
   instructions?: string;
 }
 
+interface ConnectRequestPayload {
+  sdp: string;
+  voice?: string;
+  instructions?: string;
+}
+
 function buildSessionConfig(options: SessionOptions = {}) {
   const session: Record<string, unknown> = {
     type: "realtime",
@@ -231,6 +237,39 @@ async function performSdpNegotiation(
   return response.text();
 }
 
+async function parseConnectRequest(request: Request): Promise<ConnectRequestPayload> {
+  const contentType = request.headers.get("Content-Type") || "";
+
+  if (contentType.includes("application/json")) {
+    const body = await request.json<Partial<ConnectRequestPayload>>();
+    if (!body?.sdp || typeof body.sdp !== "string") {
+      throw new Error("Missing 'sdp' field");
+    }
+    return {
+      sdp: body.sdp,
+      voice: typeof body.voice === "string" ? body.voice : undefined,
+      instructions: typeof body.instructions === "string" ? body.instructions : undefined,
+    };
+  }
+
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await request.formData();
+    const sdp = formData.get("sdp");
+    if (!sdp || typeof sdp !== "string") {
+      throw new Error("Missing 'sdp' field");
+    }
+    const voice = formData.get("voice");
+    const instructions = formData.get("instructions");
+    return {
+      sdp,
+      voice: typeof voice === "string" ? voice : undefined,
+      instructions: typeof instructions === "string" ? instructions : undefined,
+    };
+  }
+
+  throw new Error("Expected application/json or multipart/form-data");
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -251,29 +290,23 @@ export default {
     // SDP negotiation for WebRTC
     if (pathname === "/connect" && request.method === "POST") {
       try {
-        if (!request.headers.get("Content-Type")?.includes("multipart/form-data")) {
+        let payload: ConnectRequestPayload;
+        try {
+          payload = await parseConnectRequest(request);
+        } catch (error) {
           return new Response(
-            JSON.stringify({ error: "Expected multipart/form-data" }),
+            JSON.stringify({ error: String(error) }),
             { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
           );
         }
 
-        const formData = await request.formData();
-        const sdpOffer = formData.get("sdp");
-        if (!sdpOffer || typeof sdpOffer !== "string") {
-          return new Response(
-            JSON.stringify({ error: "Missing 'sdp' field" }),
-            { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-          );
-        }
-
-        const voice = (formData.get("voice") as string) || "alloy";
-        const instructions = (formData.get("instructions") as string) || "";
+        const voice = payload.voice || "alloy";
+        const instructions = payload.instructions || "";
 
         // Get ephemeral token and perform SDP negotiation
         const baseUrl = getBaseUrl(env);
         const ephemeralToken = await getEphemeralToken(env, { voice, instructions });
-        const sdpAnswer = await performSdpNegotiation(ephemeralToken, sdpOffer, baseUrl);
+        const sdpAnswer = await performSdpNegotiation(ephemeralToken, payload.sdp, baseUrl);
 
         return new Response(sdpAnswer, {
           status: 201,

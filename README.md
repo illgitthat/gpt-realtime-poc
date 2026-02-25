@@ -2,14 +2,17 @@
 
 > **Note:** This project was originally forked and took inspiration from [Azure-Samples/aoai-realtime-audio-sdk](https://github.com/Azure-Samples/aoai-realtime-audio-sdk)
 
-A WebRTC-based sample for low-latency, "speech in, speech out" conversations with `gpt-realtime-1.5`. The browser negotiates an SDP offer with a Cloudflare Worker, which exchanges it for an Azure OpenAI realtime call and streams audio plus events over a data channel.
+A WebRTC-based sample for low-latency, "speech in, speech out" conversations with `gpt-realtime-1.5`. The browser negotiates an SDP offer with a backend `/connect` endpoint, which exchanges it for an Azure OpenAI realtime call and streams audio plus events over a data channel.
 
 ## Quick Start
 
 **Prerequisites:**
 - Uses `gpt-realtime-1.5` model for audio and `gpt-4o-transcribe` for transcription.
 - Bun + Azure credentials (AAD service principal with access to your OpenAI resources or an API key).
-- Set environment variables in `.dev.vars` for local dev or via `wrangler secret put` for deploy:
+- Set environment variables:
+  - Cloudflare Worker local/dev: `.dev.vars`
+  - Cloudflare Worker deploy: `wrangler secret put`
+  - Azure Static Web Apps: SWA Application Settings
 
 ```
 AZURE_OPENAI_BASE_URL=https://YOUR-RESOURCE-NAME.openai.azure.com
@@ -42,6 +45,25 @@ bun run deploy
 bun run deploy:plain
 ```
 
+Azure Static Web Apps deploy:
+
+```bash
+# one-time login for this terminal/session
+az login
+
+# optional: ensure the desired subscription is selected
+az account set --subscription "<SUBSCRIPTION_ID_OR_NAME>"
+
+# deploy using your active az subscription
+npm run deploy:swa
+```
+
+Optional environment variables for `deploy:swa`:
+- `SWA_APP_NAME` (target Static Web App resource)
+- `SWA_RESOURCE_GROUP`
+- `SWA_ENV` (`production` by default)
+- `SWA_CLI_DEPLOYMENT_TOKEN` (skip interactive login)
+
 Local dev:
 
 ```bash
@@ -51,25 +73,35 @@ bun run dev
 
 Open `http://localhost:8787/`, click "Start", and begin speaking.
 
+Azure SWA local emulator:
+
+```bash
+npm run dev:swa
+```
+
+Open `http://localhost:4280/`.
+
 ## API Overview
 
-The Worker exposes a single `/connect` endpoint that accepts a WebRTC SDP offer and returns the SDP answer from Azure OpenAI.
+The backend exposes a single `/connect` endpoint that accepts a WebRTC SDP offer and returns the SDP answer from Azure OpenAI.
 
-- **Client** posts `multipart/form-data` fields: `sdp`, `voice`, `instructions`.
-- **Worker** requests an ephemeral token from Azure OpenAI (`/v1/realtime/client_secrets`) and exchanges the offer at `/v1/realtime/calls`.
+- **Client** posts JSON: `sdp`, `voice`, `instructions`.
+- **Backend** requests an ephemeral token from Azure OpenAI (`/v1/realtime/client_secrets`) and exchanges the offer at `/v1/realtime/calls`.
 - **Client** streams audio and events over the WebRTC data channel.
 
 ## Architecture
 
 ```
-Browser <-> Cloudflare Worker <-> Azure OpenAI /realtime
+Browser <-> (Cloudflare Worker OR SWA API Function) <-> Azure OpenAI /realtime
 ```
 
-The Worker acts as the trusted middle tier for credentials and token minting.
+The backend acts as the trusted middle tier for credentials and token minting.
 
 ## Code description
 
-The UI lives in [public/index.html](public/index.html) and negotiates WebRTC against `/connect`. The Cloudflare Worker entrypoint is [src/worker.ts](src/worker.ts).
+The UI lives in [public/index.html](public/index.html) and negotiates WebRTC against `/connect`.
+- Cloudflare Worker entrypoint: [src/worker.ts](src/worker.ts)
+- Azure SWA API function: [api/connect/index.js](api/connect/index.js)
 
 ## Documentation links
 

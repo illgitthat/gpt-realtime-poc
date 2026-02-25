@@ -1,0 +1,10 @@
+{
+  "$schema": "https://aka.ms/azure/static-web-apps-cli/schema",
+  "configurations": {
+    "gpt-realtime-poc": {
+      "appLocation": "public",
+      "apiLocation": "api",
+      "outputLocation": "."
+    }
+  }
+}
