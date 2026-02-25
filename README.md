@@ -37,6 +37,7 @@ AZURE_CLIENT_SECRET=...
 ```
 
 For local Worker development these can live in `.dev.vars`.
+If both API key and AAD credentials exist, API key auth is used.
 
 ## Local Development
 
@@ -91,11 +92,16 @@ npm run setup:swa
 - Syncs Azure OpenAI settings into SWA app settings
 - Syncs SWA deployment token to GitHub secret `AZURE_STATIC_WEB_APPS_API_TOKEN`
 
+Auth mode behavior in `setup:swa`:
+
+- If `AZURE_OPENAI_API_KEY` is present, SWA is configured for API-key auth and AAD app settings are removed.
+- Otherwise, SWA is configured for AAD auth (`AZURE_TENANT_ID` + `AZURE_CLIENT_ID` + `AZURE_CLIENT_SECRET`).
+
 Optional overrides:
 
 - `SWA_RESOURCE_GROUP` (default `gpt-realtime-poc`)
 - `SWA_APP_NAME` (default `gpt-realtime-poc`)
-- `SWA_LOCATION` (default `centralus`)
+- `SWA_LOCATION` (default `eastus2`)
 - `SWA_SKU` (default `Free`)
 
 ### 2. Deploy via GitHub Actions

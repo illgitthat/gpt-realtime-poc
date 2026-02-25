@@ -208,6 +208,26 @@ function syncAppSettings(appName, resourceGroup, settings) {
   console.log(`Applied ${entries.length} app settings.`);
 }
 
+function deleteAppSettings(appName, resourceGroup, settingNames) {
+  if (!settingNames.length) {
+    return;
+  }
+
+  run("az", [
+    "staticwebapp",
+    "appsettings",
+    "delete",
+    "--name",
+    appName,
+    "--resource-group",
+    resourceGroup,
+    "--setting-names",
+    ...settingNames,
+    "-o",
+    "none",
+  ]);
+}
+
 function readDeploymentToken(appName, resourceGroup) {
   const result = runCapture("az", [
     "staticwebapp",
@@ -232,18 +252,35 @@ function readDeploymentToken(appName, resourceGroup) {
 }
 
 const dotEnvVars = parseDotEnvFile(".dev.vars");
-const settings = {
-  AZURE_OPENAI_BASE_URL:
-    process.env.AZURE_OPENAI_BASE_URL || dotEnvVars.AZURE_OPENAI_BASE_URL || "",
-  AZURE_OPENAI_API_KEY:
-    process.env.AZURE_OPENAI_API_KEY || dotEnvVars.AZURE_OPENAI_API_KEY || "",
-  AZURE_TENANT_ID:
-    process.env.AZURE_TENANT_ID || dotEnvVars.AZURE_TENANT_ID || dotEnvVars.TmP_AZURE_TENANT_ID || "",
-  AZURE_CLIENT_ID:
-    process.env.AZURE_CLIENT_ID || dotEnvVars.AZURE_CLIENT_ID || dotEnvVars.TmP_AZURE_CLIENT_ID || "",
-  AZURE_CLIENT_SECRET:
-    process.env.AZURE_CLIENT_SECRET || dotEnvVars.AZURE_CLIENT_SECRET || dotEnvVars.TmP_AZURE_CLIENT_SECRET || "",
-};
+const baseUrl = process.env.AZURE_OPENAI_BASE_URL || dotEnvVars.AZURE_OPENAI_BASE_URL || "";
+const apiKey = process.env.AZURE_OPENAI_API_KEY || dotEnvVars.AZURE_OPENAI_API_KEY || "";
+const tenantId = process.env.AZURE_TENANT_ID || dotEnvVars.AZURE_TENANT_ID || dotEnvVars.TmP_AZURE_TENANT_ID || "";
+const clientId = process.env.AZURE_CLIENT_ID || dotEnvVars.AZURE_CLIENT_ID || dotEnvVars.TmP_AZURE_CLIENT_ID || "";
+const clientSecret =
+  process.env.AZURE_CLIENT_SECRET || dotEnvVars.AZURE_CLIENT_SECRET || dotEnvVars.TmP_AZURE_CLIENT_SECRET || "";
+
+if (!baseUrl) {
+  console.log("Missing AZURE_OPENAI_BASE_URL in environment or .dev.vars.");
+  process.exit(1);
+}
+
+const settings = { AZURE_OPENAI_BASE_URL: baseUrl };
+const settingsToDelete = [];
+
+if (apiKey) {
+  settings.AZURE_OPENAI_API_KEY = apiKey;
+  settingsToDelete.push("AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET");
+  console.log("Using API key auth mode for SWA app settings.");
+} else if (tenantId && clientId && clientSecret) {
+  settings.AZURE_TENANT_ID = tenantId;
+  settings.AZURE_CLIENT_ID = clientId;
+  settings.AZURE_CLIENT_SECRET = clientSecret;
+  settingsToDelete.push("AZURE_OPENAI_API_KEY");
+  console.log("Using AAD client credentials auth mode for SWA app settings.");
+} else {
+  console.log("Provide either AZURE_OPENAI_API_KEY or full AAD credentials for SWA app settings.");
+  process.exit(1);
+}
 
 console.log(`Ensuring resource group ${DEFAULT_RESOURCE_GROUP} in ${DEFAULT_LOCATION}...`);
 const resourceGroupLocation = ensureResourceGroup(DEFAULT_RESOURCE_GROUP, DEFAULT_LOCATION);
@@ -254,6 +291,7 @@ const app = ensureStaticWebApp(DEFAULT_APP_NAME, DEFAULT_RESOURCE_GROUP, appLoca
 
 console.log("Syncing SWA application settings...");
 syncAppSettings(DEFAULT_APP_NAME, DEFAULT_RESOURCE_GROUP, settings);
+deleteAppSettings(DEFAULT_APP_NAME, DEFAULT_RESOURCE_GROUP, settingsToDelete);
 
 console.log("Reading deployment token...");
 const deploymentToken = readDeploymentToken(DEFAULT_APP_NAME, DEFAULT_RESOURCE_GROUP);

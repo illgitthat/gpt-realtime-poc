@@ -53,12 +53,12 @@ function resolveAuthHeaders() {
   const clientSecret = String(process.env.AZURE_CLIENT_SECRET || "").trim();
   const apiKey = String(process.env.AZURE_OPENAI_API_KEY || "").trim();
 
-  if (tenantId && clientId && clientSecret) {
-    return { source: "aad", headers: {} };
-  }
-
   if (apiKey) {
     return { source: "apiKey", headers: { "api-key": apiKey } };
+  }
+
+  if (tenantId && clientId && clientSecret) {
+    return { source: "aad", headers: {} };
   }
 
   throw new Error("Missing Azure AD credentials or AZURE_OPENAI_API_KEY.");
