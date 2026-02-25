@@ -23,7 +23,7 @@ interface SessionOptions {
 function buildSessionConfig(options: SessionOptions = {}) {
   const session: Record<string, unknown> = {
     type: "realtime",
-    model: "gpt-realtime",
+    model: "gpt-realtime-1.5",
 
   };
   if (options.voice) {

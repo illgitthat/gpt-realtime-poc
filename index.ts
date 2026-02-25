@@ -22,8 +22,8 @@ async function main(): Promise<void> {
     // The deployment name of your Azure OpenAI model is required. You can set it in the AZURE_OPENAI_DEPLOYMENT_NAME
     // environment variable or replace the default value below.
     // You can find it in the Foundry portal in the "Models + endpoints" page of your Azure OpenAI resource.
-    // Example: gpt-realtime
-    const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || 'gpt-realtime';
+    // Example: gpt-realtime-1.5
+    const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || 'gpt-realtime-1.5';
 
     // Keyless authentication
     const credential = new DefaultAzureCredential();

@@ -43,6 +43,12 @@
               </svg>
               <span>End Chat</span>
             </button>
+            <button id="header-restart" class="btn btn-primary btn-small hidden" type="button">
+              <svg class="btn-icon-small" viewBox="0 0 24 24" fill="none">
+                <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" fill="currentColor"/>
+              </svg>
+              <span>Restart</span>
+            </button>
           </div>
         </div>
       </header>
@@ -60,7 +66,7 @@
                 </svg>
               </button>
               <h2>Start a Conversation</h2>
-              <p>Tap the mic above to begin talking</p>
+              <p>Tap the microphone to begin</p>
             </div>
           </div>
         </section>
@@ -128,7 +134,7 @@
             </div>
           </div>
 
-          <div class="panel-footer">
+          <div class="panel-footer hidden" id="panel-footer">
             <button id="clear-all" class="btn btn-ghost" type="button">
               <svg class="btn-icon-small" viewBox="0 0 24 24" fill="none">
                 <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/>
@@ -139,7 +145,7 @@
         </aside>
       </main>
 
-      <!-- Mobile Hero Start Button (centered, prominent) -->
+      <!-- Mobile Hero Mode Selector -->
       <div class="mobile-hero-start" id="mobile-hero-start">
         <div class="hero-mode-selector">
           <button class="hero-mode-btn active" data-mode="default" type="button">
@@ -155,13 +161,6 @@
             <span class="hero-mode-name">Language Tutor</span>
           </button>
         </div>
-        <button class="hero-mic-btn" id="hero-mic-btn" type="button" aria-label="Start conversation">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z" fill="currentColor"/>
-            <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V22h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="currentColor"/>
-          </svg>
-        </button>
-        <span class="hero-label">Tap to start</span>
       </div>
 
       <!-- Mobile Controls (visible on small screens during conversation) -->
@@ -231,6 +230,7 @@
     const statusText = document.getElementById("status-text");
     const connectionStatus = document.getElementById("connection-status");
     const clearAllButton = document.getElementById("clear-all");
+    const headerRestartBtn = document.getElementById("header-restart");
     const defaultModeButton = document.getElementById("default-mode");
     const interviewModeButton = document.getElementById("interview-mode");
     const languageTutorButton = document.getElementById("language-tutor");
@@ -328,11 +328,23 @@
       voiceSelect.disabled = sessionActive;
       instructionsTextarea.disabled = sessionActive;
 
-      // Header end chat button
+      const mobileVoiceSelect = document.querySelector('.mobile-voice-select');
+      const mobileInstructions = document.querySelector('.mobile-instructions');
+      if (mobileVoiceSelect) mobileVoiceSelect.disabled = sessionActive;
+      if (mobileInstructions) mobileInstructions.disabled = sessionActive;
+
+      // Header end chat / restart buttons
+      const hasConversationForHeader = transcriptContainer.querySelectorAll('.message').length > 0;
       if (sessionActive) {
         headerEndChatBtn.classList.remove('hidden');
+        headerRestartBtn.classList.add('hidden');
       } else {
         headerEndChatBtn.classList.add('hidden');
+        if (hasConversationForHeader) {
+          headerRestartBtn.classList.remove('hidden');
+        } else {
+          headerRestartBtn.classList.add('hidden');
+        }
       }
 
       // Mobile buttons - show/hide hero and FABs appropriately
@@ -357,6 +369,10 @@
       document.querySelectorAll('.style-card').forEach(card => {
         card.disabled = sessionActive;
       });
+
+      document.querySelectorAll('.hero-mode-btn, .mobile-style-btn').forEach(btn => {
+        btn.disabled = sessionActive;
+      });
     }
 
     function setActiveStyleCard(mode) {
@@ -373,6 +389,11 @@
       } else if (mode === 'tutor') {
         languageTutorButton.classList.add('active');
         instructionsTextarea.value = languageTutorPrompt;
+      }
+
+      const mobileInstructions = document.querySelector('.mobile-instructions');
+      if (mobileInstructions) {
+        mobileInstructions.value = instructionsTextarea.value;
       }
 
       selectedStyle = mode;
@@ -671,9 +692,9 @@
     mobileStartButton.addEventListener("click", startSession);
     mobileStopButton.addEventListener("click", stopSession);
     welcomeStartBtn.addEventListener("click", startSession);
+    headerRestartBtn.addEventListener("click", startSession);
 
     const mobileHeroStart = document.getElementById("mobile-hero-start");
-    const heroMicBtn = document.getElementById("hero-mic-btn");
 
     // Hero mode selector buttons
     document.querySelectorAll('.hero-mode-btn').forEach(btn => {
@@ -691,7 +712,6 @@
       });
     });
 
-    heroMicBtn.addEventListener("click", startSession);
     mobileSettingsButton.addEventListener("click", toggleMobilePanel);
     mobilePanelOverlay.addEventListener("click", toggleMobilePanel);
 
@@ -744,6 +764,10 @@
             <option value="verse">Verse - Dynamic</option>
           </select>
         </div>
+        <div class="mobile-option-group">
+          <label>Custom Instructions</label>
+          <textarea class="mobile-instructions" rows="4" placeholder="Give the assistant a personality, e.g. 'Speak like a friendly teacher'"></textarea>
+        </div>
         <button class="mobile-clear-btn">Clear Conversation</button>
       `;
 
@@ -758,8 +782,24 @@
 
       // Sync mobile voice select
       const mobileVoice = mobileContent.querySelector('.mobile-voice-select');
+      mobileVoice.value = voiceSelect.value;
       mobileVoice.addEventListener('change', (e) => {
         voiceSelect.value = e.target.value;
+      });
+
+      // Keep desktop voice select and mobile select in sync
+      voiceSelect.addEventListener('change', () => {
+        mobileVoice.value = voiceSelect.value;
+      });
+
+      // Sync custom instructions both ways
+      const mobileInstructions = mobileContent.querySelector('.mobile-instructions');
+      mobileInstructions.value = instructionsTextarea.value;
+      mobileInstructions.addEventListener('input', (e) => {
+        instructionsTextarea.value = e.target.value;
+      });
+      instructionsTextarea.addEventListener('input', () => {
+        mobileInstructions.value = instructionsTextarea.value;
       });
 
       // Mobile clear button
@@ -777,11 +817,12 @@
       const hasMsgs = transcriptContainer.querySelectorAll('.message').length > 0;
       conversationStarted = hasMsgs;
 
-      // Desktop clear button
+      // Desktop clear button (hide whole panel-footer)
+      const panelFooter = document.getElementById('panel-footer');
       if (hasMsgs) {
-        clearAllButton.classList.remove('hidden');
+        panelFooter.classList.remove('hidden');
       } else {
-        clearAllButton.classList.add('hidden');
+        panelFooter.classList.add('hidden');
       }
 
       // Mobile clear button

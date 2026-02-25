@@ -279,40 +279,73 @@ body.panel-open {
   height: 100%;
   min-height: 400px;
   color: var(--color-text);
-  opacity: 0.8;
 }
 
 .welcome-icon {
-  width: 80px;
-  height: 80px;
-  background: white;
-  border-radius: var(--radius-2xl);
+  width: 110px;
+  height: 110px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: var(--space-lg);
-  box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.3), 0 8px 10px -6px rgba(99, 102, 241, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  margin-bottom: var(--space-xl);
+  box-shadow: 0 10px 40px -5px rgba(139, 92, 246, 0.5), 0 0 0 0 rgba(139, 92, 246, 0.3);
+  border: 3px solid rgba(255, 255, 255, 0.6);
   cursor: pointer;
   transition: all var(--transition-base);
-  animation: welcomePulse 3s ease-in-out infinite;
+  animation: welcomePulse 2.5s ease-in-out infinite;
+  position: relative;
+}
+
+.welcome-icon::before,
+.welcome-icon::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  animation: welcomeRipple 2.5s ease-in-out infinite;
+}
+
+.welcome-icon::after {
+  inset: -20px;
+  border-color: rgba(139, 92, 246, 0.15);
+  animation-delay: 0.4s;
 }
 
 @keyframes welcomePulse {
   0%, 100% {
-    box-shadow: 0 0 0px var(--color-primary-glow);
+    box-shadow: 0 10px 40px -5px rgba(139, 92, 246, 0.5), 0 0 0 0 rgba(139, 92, 246, 0.3);
     transform: scale(1);
   }
   50% {
-    box-shadow: 0 0 30px var(--color-primary-glow);
-    transform: scale(1.05);
+    box-shadow: 0 15px 50px -5px rgba(139, 92, 246, 0.6), 0 0 40px 8px rgba(139, 92, 246, 0.2);
+    transform: scale(1.08);
+  }
+}
+
+@keyframes welcomeRipple {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.4;
   }
 }
 
 .welcome-icon:hover {
-  transform: scale(1.1);
-  box-shadow: 0 20px 30px -5px rgba(99, 102, 241, 0.4);
+  transform: scale(1.15);
+  box-shadow: 0 20px 50px -5px rgba(139, 92, 246, 0.6);
   animation: none;
+}
+
+.welcome-icon:hover::before,
+.welcome-icon:hover::after {
+  animation: none;
+  opacity: 0;
 }
 
 .welcome-icon:active {
@@ -320,9 +353,9 @@ body.panel-open {
 }
 
 .welcome-icon svg {
-  width: 40px;
-  height: 40px;
-  color: var(--color-primary);
+  width: 48px;
+  height: 48px;
+  color: white;
 }
 
 .welcome-message h2 {
@@ -774,66 +807,6 @@ body.panel-open {
   );
 }
 
-.hero-mic-btn {
-  width: 88px;
-  height: 88px;
-  border-radius: var(--radius-full);
-  border: none;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow:
-    0 8px 32px rgba(139, 92, 246, 0.4),
-    0 4px 12px rgba(139, 92, 246, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transition: all var(--transition-base);
-  animation: heroMicPulse 2.5s ease-in-out infinite;
-}
-
-@keyframes heroMicPulse {
-  0%, 100% {
-    box-shadow:
-      0 8px 32px rgba(139, 92, 246, 0.4),
-      0 4px 12px rgba(139, 92, 246, 0.3),
-      0 0 0 0 rgba(139, 92, 246, 0.3);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow:
-      0 12px 40px rgba(139, 92, 246, 0.5),
-      0 6px 16px rgba(139, 92, 246, 0.4),
-      0 0 0 16px rgba(139, 92, 246, 0);
-    transform: scale(1.02);
-  }
-}
-
-.hero-mic-btn:hover {
-  transform: scale(1.08);
-  box-shadow:
-    0 12px 40px rgba(139, 92, 246, 0.5),
-    0 6px 16px rgba(139, 92, 246, 0.4);
-  animation: none;
-}
-
-.hero-mic-btn:active {
-  transform: scale(0.96);
-}
-
-.hero-mic-btn svg {
-  width: 40px;
-  height: 40px;
-}
-
-.hero-label {
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  letter-spacing: 0.01em;
-}
-
 /* Hero Mode Selector */
 .hero-mode-selector {
   display: flex;
@@ -968,12 +941,14 @@ body.panel-open {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
-  z-index: var(--z-modal);
-  max-height: 80vh;
-  overflow-y: auto;
+  z-index: 700;
+  height: min(88vh, 760px);
+  overflow: hidden;
   box-shadow: var(--shadow-xl);
   animation: slideUp 0.3s ease-out;
   border-top: 1px solid rgba(255, 255, 255, 0.5);
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes slideUp {
@@ -1026,6 +1001,11 @@ body.panel-open {
 
 .mobile-panel-content {
   padding: var(--space-lg);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .mobile-panel-overlay {
@@ -1033,7 +1013,7 @@ body.panel-open {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: var(--z-overlay);
+  z-index: 650;
   backdrop-filter: blur(4px);
 }
 
@@ -1083,6 +1063,31 @@ body.panel-open {
   font-size: var(--font-size-base);
   color: var(--color-text);
   background: var(--color-bg-card);
+}
+
+.mobile-instructions {
+  width: 100%;
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  background: var(--color-bg-card);
+  resize: vertical;
+  min-height: 110px;
+}
+
+.mobile-instructions::placeholder {
+  color: var(--color-text-muted);
+}
+
+.mobile-style-btn:disabled,
+.hero-mode-btn:disabled,
+.mobile-voice-select:disabled,
+.mobile-instructions:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .mobile-clear-btn {
@@ -1147,6 +1152,10 @@ body.panel-open {
     display: flex;
   }
 
+  .mobile-hero-start {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+
   .mobile-hero-start:not(.hidden) {
     display: flex;
   }
@@ -1166,13 +1175,13 @@ body.panel-open {
   }
 
   .welcome-icon {
-    width: 72px;
-    height: 72px;
+    width: 96px;
+    height: 96px;
   }
 
   .welcome-icon svg {
-    width: 36px;
-    height: 36px;
+    width: 42px;
+    height: 42px;
   }
 
   .welcome-message h2 {

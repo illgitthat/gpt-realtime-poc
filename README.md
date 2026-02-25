@@ -2,12 +2,12 @@
 
 > **Note:** This project was originally forked and took inspiration from [Azure-Samples/aoai-realtime-audio-sdk](https://github.com/Azure-Samples/aoai-realtime-audio-sdk)
 
-A WebRTC-based sample for low-latency, "speech in, speech out" conversations with `gpt-realtime`. The browser negotiates an SDP offer with a Cloudflare Worker, which exchanges it for an Azure OpenAI realtime call and streams audio plus events over a data channel.
+A WebRTC-based sample for low-latency, "speech in, speech out" conversations with `gpt-realtime-1.5`. The browser negotiates an SDP offer with a Cloudflare Worker, which exchanges it for an Azure OpenAI realtime call and streams audio plus events over a data channel.
 
 ## Quick Start
 
 **Prerequisites:**
-- Uses `gpt-realtime` model for audio and `gpt-4o-transcribe` for transcription.
+- Uses `gpt-realtime-1.5` model for audio and `gpt-4o-transcribe` for transcription.
 - Bun + Azure credentials (AAD service principal with access to your OpenAI resources or an API key).
 - Set environment variables in `.dev.vars` for local dev or via `wrangler secret put` for deploy:
 
