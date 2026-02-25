@@ -7,6 +7,7 @@
     "build": "tsc",
     "dev": "wrangler dev --port 8787",
     "dev:swa": "swa start",
+    "setup:swa": "node ./scripts/setup-swa.mjs",
     "deploy": "node ./scripts/deploy-with-domain.mjs",
     "deploy:domain": "node ./scripts/deploy-with-domain.mjs",
     "deploy:plain": "wrangler deploy",

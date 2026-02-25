@@ -1,9 +1,12 @@
 import { spawnSync } from "node:child_process";
 
-function run(command, args, options = {}) {
+const DEFAULT_APP_NAME = process.env.SWA_APP_NAME || "gpt-realtime-poc";
+const DEFAULT_RESOURCE_GROUP = process.env.SWA_RESOURCE_GROUP || "gpt-realtime-poc";
+const DEFAULT_ENVIRONMENT = process.env.SWA_ENV || "production";
+
+function run(command, args) {
   const result = spawnSync(command, args, {
     stdio: "inherit",
-    ...options,
   });
 
   if (result.status !== 0) {
@@ -11,50 +14,56 @@ function run(command, args, options = {}) {
   }
 }
 
-function readActiveSubscriptionId() {
-  const result = spawnSync("az", ["account", "show", "--query", "id", "-o", "tsv"], {
-    encoding: "utf8",
-  });
+function runCapture(command, args) {
+  const result = spawnSync(command, args, { encoding: "utf8" });
+  return {
+    ok: result.status === 0,
+    stdout: (result.stdout || "").trim(),
+  };
+}
 
-  if (result.status !== 0) {
-    return "";
+function readDeploymentToken(appName, resourceGroup) {
+  if (process.env.SWA_CLI_DEPLOYMENT_TOKEN) {
+    return process.env.SWA_CLI_DEPLOYMENT_TOKEN.trim();
   }
 
-  return (result.stdout || "").trim();
-}
+  const result = runCapture("az", [
+    "staticwebapp",
+    "secrets",
+    "list",
+    "--name",
+    appName,
+    "--resource-group",
+    resourceGroup,
+    "--query",
+    "properties.apiKey",
+    "-o",
+    "tsv",
+  ]);
 
-const deployEnv = process.env.SWA_ENV || "production";
-const appName = (process.env.SWA_APP_NAME || "").trim();
-const resourceGroup = (process.env.SWA_RESOURCE_GROUP || "").trim();
-const deploymentToken = (process.env.SWA_CLI_DEPLOYMENT_TOKEN || "").trim();
-const subscriptionId = (process.env.AZURE_SUBSCRIPTION_ID || readActiveSubscriptionId()).trim();
-
-if (!deploymentToken) {
-  const loginArgs = ["swa", "login"];
-
-  if (subscriptionId) {
-    loginArgs.push("--subscription-id", subscriptionId);
+  if (!result.ok || !result.stdout) {
+    console.error("Failed to resolve SWA deployment token. Set SWA_CLI_DEPLOYMENT_TOKEN or run setup:swa.");
+    process.exit(1);
   }
 
-  if (resourceGroup) {
-    loginArgs.push("--resource-group", resourceGroup);
-  }
-
-  run("npx", loginArgs);
+  return result.stdout;
 }
 
-const deployArgs = ["swa", "deploy", "--env", deployEnv];
+const deploymentToken = readDeploymentToken(DEFAULT_APP_NAME, DEFAULT_RESOURCE_GROUP);
 
-if (appName) {
-  deployArgs.push("--app-name", appName);
-}
-
-if (resourceGroup) {
-  deployArgs.push("--resource-group", resourceGroup);
-}
-
-if (deploymentToken) {
-  deployArgs.push("--deployment-token", deploymentToken);
-}
-
-run("npx", deployArgs);
+run("npx", [
+  "swa",
+  "deploy",
+  "--app-name",
+  DEFAULT_APP_NAME,
+  "--resource-group",
+  DEFAULT_RESOURCE_GROUP,
+  "--env",
+  DEFAULT_ENVIRONMENT,
+  "--api-language",
+  "node",
+  "--api-version",
+  "20",
+  "--deployment-token",
+  deploymentToken,
+]);

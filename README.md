@@ -2,106 +2,148 @@
 
 > **Note:** This project was originally forked and took inspiration from [Azure-Samples/aoai-realtime-audio-sdk](https://github.com/Azure-Samples/aoai-realtime-audio-sdk)
 
-A WebRTC-based sample for low-latency, "speech in, speech out" conversations with `gpt-realtime-1.5`. The browser negotiates an SDP offer with a backend `/connect` endpoint, which exchanges it for an Azure OpenAI realtime call and streams audio plus events over a data channel.
+A WebRTC-based sample for low-latency, "speech in, speech out" conversations with `gpt-realtime-1.5`.
+The browser sends an SDP offer to `/connect`, and the backend exchanges it with Azure OpenAI realtime APIs.
 
-## Quick Start
+## Deployment Paths
 
-**Prerequisites:**
-- Uses `gpt-realtime-1.5` model for audio and `gpt-4o-transcribe` for transcription.
-- Bun + Azure credentials (AAD service principal with access to your OpenAI resources or an API key).
-- Set environment variables:
-  - Cloudflare Worker local/dev: `.dev.vars`
-  - Cloudflare Worker deploy: `wrangler secret put`
-  - Azure Static Web Apps: SWA Application Settings
+This repo supports two production deployment targets:
 
-```
+1. **Cloudflare Worker**
+2. **Azure Static Web Apps (SWA)**
+
+Use Cloudflare if you want the existing Worker deployment flow.
+Use Azure SWA if you want Azure-hosted static frontend + Azure Functions API.
+
+## Prerequisites
+
+- Bun / Node.js
+- Azure CLI (`az`) logged in to the target subscription
+- GitHub CLI (`gh`) authenticated (required for Azure SWA GitHub Actions setup)
+- Azure OpenAI credentials
+
+Shared environment values:
+
+```bash
 AZURE_OPENAI_BASE_URL=https://YOUR-RESOURCE-NAME.openai.azure.com
 
-# Optional: custom domain for deploy (gitignored)
-WORKER_DOMAIN=voice.example.com
+# Option A: API key
+AZURE_OPENAI_API_KEY=...
 
-# Option A: Azure AD (service principal)
+# Option B: AAD service principal
 AZURE_TENANT_ID=...
 AZURE_CLIENT_ID=...
 AZURE_CLIENT_SECRET=...
-
-# Option B: API key
-AZURE_OPENAI_API_KEY=...
 ```
 
-Cloudflare deploy:
+For local Worker development these can live in `.dev.vars`.
 
-```
-wrangler secret put AZURE_OPENAI_BASE_URL
-wrangler secret put AZURE_TENANT_ID
-wrangler secret put AZURE_CLIENT_ID
-wrangler secret put AZURE_CLIENT_SECRET
-wrangler secret put AZURE_OPENAI_API_KEY
+## Local Development
 
-# Deploy with a custom domain from .dev.vars
-bun run deploy
-
-# Deploy without a custom domain
-bun run deploy:plain
-```
-
-Azure Static Web Apps deploy:
-
-```bash
-# one-time login for this terminal/session
-az login
-
-# optional: ensure the desired subscription is selected
-az account set --subscription "<SUBSCRIPTION_ID_OR_NAME>"
-
-# deploy using your active az subscription
-npm run deploy:swa
-```
-
-Optional environment variables for `deploy:swa`:
-- `SWA_APP_NAME` (target Static Web App resource)
-- `SWA_RESOURCE_GROUP`
-- `SWA_ENV` (`production` by default)
-- `SWA_CLI_DEPLOYMENT_TOKEN` (skip interactive login)
-
-Local dev:
+Cloudflare Worker local dev:
 
 ```bash
 bun install
 bun run dev
 ```
 
-Open `http://localhost:8787/`, click "Start", and begin speaking.
+Open `http://localhost:8787/`.
 
-Azure SWA local emulator:
+Azure SWA emulator local dev:
 
 ```bash
+npm install
 npm run dev:swa
 ```
 
 Open `http://localhost:4280/`.
 
+## Cloudflare Deployment
+
+```bash
+wrangler secret put AZURE_OPENAI_BASE_URL
+wrangler secret put AZURE_TENANT_ID
+wrangler secret put AZURE_CLIENT_ID
+wrangler secret put AZURE_CLIENT_SECRET
+wrangler secret put AZURE_OPENAI_API_KEY
+
+# Deploy with custom domain from .dev.vars
+bun run deploy
+
+# Deploy without custom domain
+bun run deploy:plain
+```
+
+## Azure SWA Deployment (Recommended)
+
+### 1. One-time Azure setup
+
+```bash
+az login
+gh auth login
+npm run setup:swa
+```
+
+`setup:swa` does the following:
+
+- Ensures resource group exists (default: `gpt-realtime-poc`)
+- Ensures Static Web App exists (default name: `gpt-realtime-poc`)
+- Syncs Azure OpenAI settings into SWA app settings
+- Syncs SWA deployment token to GitHub secret `AZURE_STATIC_WEB_APPS_API_TOKEN`
+
+Optional overrides:
+
+- `SWA_RESOURCE_GROUP` (default `gpt-realtime-poc`)
+- `SWA_APP_NAME` (default `gpt-realtime-poc`)
+- `SWA_LOCATION` (default `centralus`)
+- `SWA_SKU` (default `Free`)
+
+### 2. Deploy via GitHub Actions
+
+This repo includes a stable workflow at `.github/workflows/azure-static-web-apps.yml`.
+
+- Push to `main` to deploy automatically
+- Or run the workflow manually with `workflow_dispatch`
+
+### 3. Optional direct CLI deploy
+
+```bash
+npm run deploy:swa
+```
+
+This deploys with SWA deployment token auth and defaults to:
+
+- SWA app name: `gpt-realtime-poc`
+- resource group: `gpt-realtime-poc`
+- environment: `production`
+
+Optional overrides:
+
+- `SWA_APP_NAME`
+- `SWA_RESOURCE_GROUP`
+- `SWA_ENV`
+- `SWA_CLI_DEPLOYMENT_TOKEN`
+
 ## API Overview
 
-The backend exposes a single `/connect` endpoint that accepts a WebRTC SDP offer and returns the SDP answer from Azure OpenAI.
+The backend exposes `/connect`.
 
-- **Client** posts JSON: `sdp`, `voice`, `instructions`.
-- **Backend** requests an ephemeral token from Azure OpenAI (`/v1/realtime/client_secrets`) and exchanges the offer at `/v1/realtime/calls`.
-- **Client** streams audio and events over the WebRTC data channel.
+- Client posts JSON: `sdp`, `voice`, `instructions`
+- Backend requests ephemeral token from Azure OpenAI (`/v1/realtime/client_secrets`)
+- Backend exchanges SDP at `/v1/realtime/calls`
 
 ## Architecture
 
-```
+```text
 Browser <-> (Cloudflare Worker OR SWA API Function) <-> Azure OpenAI /realtime
 ```
 
-The backend acts as the trusted middle tier for credentials and token minting.
+## Code Map
 
-## Code description
-
-The UI lives in [public/index.html](public/index.html) and negotiates WebRTC against `/connect`.
-- Cloudflare Worker entrypoint: [src/worker.ts](src/worker.ts)
-- Azure SWA API function: [api/connect/index.js](api/connect/index.js)
+- UI: `public/index.html`
+- Cloudflare Worker backend: `src/worker.ts`
+- SWA API backend: `api/connect/index.js`
+- SWA runtime routing: `public/staticwebapp.config.json`
 
 ## Documentation links
 
