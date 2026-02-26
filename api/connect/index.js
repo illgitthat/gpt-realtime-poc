@@ -25,6 +25,22 @@ function toErrorMessage(error) {
   return String(error);
 }
 
+function toKnownPayload(input) {
+  if (!isPlainObject(input)) {
+    return {};
+  }
+
+  const payload = {};
+  for (const key of ["sdp", "voice", "instructions"]) {
+    const value = input[key];
+    if (typeof value === "string") {
+      payload[key] = value;
+    }
+  }
+
+  return payload;
+}
+
 function buildSessionConfig(options = {}) {
   const session = {
     type: "realtime",
@@ -255,6 +271,11 @@ function parseJsonPayload(rawBody) {
 }
 
 async function parseMultipartPayload(req, contentType) {
+  const parsedBodyPayload = toKnownPayload(req.body);
+  if (Object.keys(parsedBodyPayload).length > 0) {
+    return parsedBodyPayload;
+  }
+
   const multipartBody = req.rawBody ?? req.body;
 
   if (multipartBody == null || multipartBody === "") {
@@ -268,17 +289,11 @@ async function parseMultipartPayload(req, contentType) {
       body: multipartBody,
     });
     const formData = await formRequest.formData();
-    const payload = {};
-
-    for (const key of ["sdp", "voice", "instructions"]) {
-      const value = formData.get(key);
-      if (typeof value === "string") {
-        payload[key] = value;
-      }
-    }
-
-    return payload;
+    return toKnownPayload(Object.fromEntries(formData.entries()));
   } catch (_error) {
+    if (Object.keys(parsedBodyPayload).length > 0) {
+      return parsedBodyPayload;
+    }
     throw new BadRequestError("Invalid multipart/form-data payload.");
   }
 }
