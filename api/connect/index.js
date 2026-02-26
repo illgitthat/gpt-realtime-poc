@@ -93,9 +93,10 @@ async function parseMultipartPayload(req, contentType) {
 }
 
 async function parseConnectPayload(req) {
-  const contentType = getHeader(req, "Content-Type").toLowerCase();
+  const contentType = getHeader(req, "Content-Type");
+  const contentTypeLower = contentType.toLowerCase();
 
-  if (contentType.includes("multipart/form-data")) {
+  if (contentTypeLower.includes("multipart/form-data")) {
     return parseMultipartPayload(req, contentType);
   }
 
