@@ -1,5 +1,3 @@
-const Busboy = require("busboy");
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -284,28 +282,20 @@ async function parseMultipartPayload(req, contentType) {
     return {};
   }
 
-  const bodyBuffer = Buffer.isBuffer(multipartBody) ? multipartBody : Buffer.from(String(multipartBody));
-
-  return new Promise((resolve, reject) => {
-    let busboy;
-    try {
-      busboy = Busboy({ headers: { "content-type": contentType } });
-    } catch (_error) {
-      reject(new BadRequestError("Invalid multipart/form-data payload."));
-      return;
-    }
-
-    const payload = {};
-    busboy.on("field", (name, value) => {
-      if (["sdp", "voice", "instructions"].includes(name) && typeof value === "string") {
-        payload[name] = value;
-      }
+  try {
+    const formRequest = new Request("http://localhost/connect", {
+      method: "POST",
+      headers: { "Content-Type": contentType },
+      body: multipartBody,
     });
-    busboy.on("error", () => reject(new BadRequestError("Invalid multipart/form-data payload.")));
-    busboy.on("finish", () => resolve(payload));
-
-    busboy.end(bodyBuffer);
-  });
+    const formData = await formRequest.formData();
+    return toKnownPayload(Object.fromEntries(formData.entries()));
+  } catch (_error) {
+    if (Object.keys(parsedBodyPayload).length > 0) {
+      return parsedBodyPayload;
+    }
+    throw new BadRequestError("Invalid multipart/form-data payload.");
+  }
 }
 
 async function parseConnectPayload(req) {

@@ -22,7 +22,6 @@
   },
   "dependencies": {
     "@azure/identity": "^4.13.0",
-    "busboy": "^1.6.0",
     "openai": "^6.25.0"
   }
 }
