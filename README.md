@@ -38,6 +38,7 @@ AZURE_CLIENT_SECRET=...
 
 For local Worker development these can live in `.dev.vars`.
 If both API key and AAD credentials exist, API key auth is used.
+For `setup:swa` and `deploy:swa`, values in `.dev.vars` take precedence over same-named shell environment variables.
 
 ## Local Development
 
@@ -89,7 +90,7 @@ bun run setup:swa
 
 - Ensures resource group exists (default: `gpt-realtime-poc`)
 - Ensures Static Web App exists (default name: `gpt-realtime-poc`)
-- Syncs Azure OpenAI settings into SWA app settings
+- Syncs Azure OpenAI settings into SWA app settings (default + existing preview environments)
 - Syncs SWA deployment token to GitHub secret `AZURE_STATIC_WEB_APPS_API_TOKEN`
 
 Auth mode behavior in `setup:swa`:
@@ -110,6 +111,8 @@ This repo includes a stable workflow at `.github/workflows/azure-static-web-apps
 
 - Push to `main` to deploy automatically
 - Or run the workflow manually with `workflow_dispatch`
+- Required GitHub secret: `AZURE_STATIC_WEB_APPS_API_TOKEN` (deployment token)
+- Azure OpenAI credentials are runtime SWA app settings, managed by `bun run setup:swa` (not GitHub Action env vars)
 
 ### 3. Optional direct CLI deploy
 

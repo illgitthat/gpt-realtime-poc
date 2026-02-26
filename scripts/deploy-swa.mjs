@@ -1,8 +1,56 @@
+import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
-const DEFAULT_APP_NAME = process.env.SWA_APP_NAME || "gpt-realtime-poc";
-const DEFAULT_RESOURCE_GROUP = process.env.SWA_RESOURCE_GROUP || "gpt-realtime-poc";
-const DEFAULT_ENVIRONMENT = process.env.SWA_ENV || "production";
+function parseDotEnvFile(path) {
+  if (!existsSync(path)) {
+    return {};
+  }
+
+  const contents = readFileSync(path, "utf8");
+  const values = {};
+
+  for (const rawLine of contents.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
+
+    const idx = line.indexOf("=");
+    if (idx <= 0) {
+      continue;
+    }
+
+    const key = line.slice(0, idx).trim();
+    let value = line.slice(idx + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+
+    values[key] = value;
+  }
+
+  return values;
+}
+
+const dotEnvVars = parseDotEnvFile(".dev.vars");
+
+function getConfigValue(name, fallback = "") {
+  const localValue = String(dotEnvVars[name] || "").trim();
+  if (localValue) {
+    return localValue;
+  }
+
+  const envValue = String(process.env[name] || "").trim();
+  if (envValue) {
+    return envValue;
+  }
+
+  return fallback;
+}
+
+const DEFAULT_APP_NAME = getConfigValue("SWA_APP_NAME", "gpt-realtime-poc");
+const DEFAULT_RESOURCE_GROUP = getConfigValue("SWA_RESOURCE_GROUP", "gpt-realtime-poc");
+const DEFAULT_ENVIRONMENT = getConfigValue("SWA_ENV", "production");
 
 function run(command, args) {
   const result = spawnSync(command, args, {
@@ -23,8 +71,9 @@ function runCapture(command, args) {
 }
 
 function readDeploymentToken(appName, resourceGroup) {
-  if (process.env.SWA_CLI_DEPLOYMENT_TOKEN) {
-    return process.env.SWA_CLI_DEPLOYMENT_TOKEN.trim();
+  const explicitToken = getConfigValue("SWA_CLI_DEPLOYMENT_TOKEN", "");
+  if (explicitToken) {
+    return explicitToken;
   }
 
   const result = runCapture("az", [

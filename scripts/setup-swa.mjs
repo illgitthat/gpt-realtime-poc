@@ -1,12 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
-const DEFAULT_RESOURCE_GROUP = process.env.SWA_RESOURCE_GROUP || "gpt-realtime-poc";
-const DEFAULT_APP_NAME = process.env.SWA_APP_NAME || "gpt-realtime-poc";
-const DEFAULT_LOCATION = process.env.SWA_LOCATION || "eastus2";
-const DEFAULT_SKU = process.env.SWA_SKU || "Free";
-const GITHUB_SECRET_NAME = process.env.SWA_GITHUB_TOKEN_SECRET || "AZURE_STATIC_WEB_APPS_API_TOKEN";
-
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     stdio: "inherit",
@@ -59,6 +53,28 @@ function parseDotEnvFile(path) {
 
   return values;
 }
+
+const dotEnvVars = parseDotEnvFile(".dev.vars");
+
+function getConfigValue(name, fallback = "") {
+  const localValue = String(dotEnvVars[name] || "").trim();
+  if (localValue) {
+    return localValue;
+  }
+
+  const envValue = String(process.env[name] || "").trim();
+  if (envValue) {
+    return envValue;
+  }
+
+  return fallback;
+}
+
+const DEFAULT_RESOURCE_GROUP = getConfigValue("SWA_RESOURCE_GROUP", "gpt-realtime-poc");
+const DEFAULT_APP_NAME = getConfigValue("SWA_APP_NAME", "gpt-realtime-poc");
+const DEFAULT_LOCATION = getConfigValue("SWA_LOCATION", "eastus2");
+const DEFAULT_SKU = getConfigValue("SWA_SKU", "Free");
+const GITHUB_SECRET_NAME = getConfigValue("SWA_GITHUB_TOKEN_SECRET", "AZURE_STATIC_WEB_APPS_API_TOKEN");
 
 function getOriginRepo() {
   const origin = runCapture("git", ["config", "--get", "remote.origin.url"]);
@@ -183,7 +199,7 @@ function ensureStaticWebApp(appName, resourceGroup, location, sku) {
   return app;
 }
 
-function syncAppSettings(appName, resourceGroup, settings) {
+function syncAppSettings(appName, resourceGroup, settings, environmentName = "") {
   const entries = Object.entries(settings).filter(([, value]) => String(value || "").trim());
   if (entries.length === 0) {
     console.log("No SWA app settings to apply.");
@@ -198,6 +214,7 @@ function syncAppSettings(appName, resourceGroup, settings) {
     appName,
     "--resource-group",
     resourceGroup,
+    ...(environmentName ? ["--environment-name", environmentName] : []),
     "--setting-names",
     ...entries.map(([key, value]) => `${key}=${value}`),
     "-o",
@@ -205,10 +222,14 @@ function syncAppSettings(appName, resourceGroup, settings) {
   ];
 
   run("az", args);
-  console.log(`Applied ${entries.length} app settings.`);
+  if (environmentName) {
+    console.log(`Applied ${entries.length} app settings to environment ${environmentName}.`);
+  } else {
+    console.log(`Applied ${entries.length} app settings to default environment.`);
+  }
 }
 
-function deleteAppSettings(appName, resourceGroup, settingNames) {
+function deleteAppSettings(appName, resourceGroup, settingNames, environmentName = "") {
   if (!settingNames.length) {
     return;
   }
@@ -221,11 +242,46 @@ function deleteAppSettings(appName, resourceGroup, settingNames) {
     appName,
     "--resource-group",
     resourceGroup,
+    ...(environmentName ? ["--environment-name", environmentName] : []),
     "--setting-names",
     ...settingNames,
     "-o",
     "none",
   ]);
+}
+
+function listEnvironmentNames(appName, resourceGroup) {
+  const result = runCapture("az", [
+    "staticwebapp",
+    "environment",
+    "list",
+    "--name",
+    appName,
+    "--resource-group",
+    resourceGroup,
+    "-o",
+    "json",
+  ]);
+
+  if (!result.ok || !result.stdout) {
+    console.log("Could not list SWA environments. Continuing with default environment only.");
+    return [];
+  }
+
+  try {
+    const environments = JSON.parse(result.stdout);
+    if (!Array.isArray(environments)) {
+      return [];
+    }
+
+    return environments
+      .map((entry) => String(entry?.name || "").trim())
+      .filter(Boolean)
+      .filter((name) => name !== "default");
+  } catch (_error) {
+    console.log("Failed to parse SWA environment list. Continuing with default environment only.");
+    return [];
+  }
 }
 
 function readDeploymentToken(appName, resourceGroup) {
@@ -251,12 +307,11 @@ function readDeploymentToken(appName, resourceGroup) {
   return result.stdout;
 }
 
-const dotEnvVars = parseDotEnvFile(".dev.vars");
-const baseUrl = process.env.AZURE_OPENAI_BASE_URL || dotEnvVars.AZURE_OPENAI_BASE_URL || "";
-const apiKey = process.env.AZURE_OPENAI_API_KEY || dotEnvVars.AZURE_OPENAI_API_KEY || "";
-const tenantId = process.env.AZURE_TENANT_ID || dotEnvVars.AZURE_TENANT_ID || "";
-const clientId = process.env.AZURE_CLIENT_ID || dotEnvVars.AZURE_CLIENT_ID || "";
-const clientSecret = process.env.AZURE_CLIENT_SECRET || dotEnvVars.AZURE_CLIENT_SECRET || "";
+const baseUrl = getConfigValue("AZURE_OPENAI_BASE_URL", "");
+const apiKey = getConfigValue("AZURE_OPENAI_API_KEY", "");
+const tenantId = getConfigValue("AZURE_TENANT_ID", "");
+const clientId = getConfigValue("AZURE_CLIENT_ID", "");
+const clientSecret = getConfigValue("AZURE_CLIENT_SECRET", "");
 
 if (!baseUrl) {
   console.log("Missing AZURE_OPENAI_BASE_URL in environment or .dev.vars.");
@@ -285,12 +340,17 @@ console.log(`Ensuring resource group ${DEFAULT_RESOURCE_GROUP} in ${DEFAULT_LOCA
 const resourceGroupLocation = ensureResourceGroup(DEFAULT_RESOURCE_GROUP, DEFAULT_LOCATION);
 
 console.log(`Ensuring Static Web App ${DEFAULT_APP_NAME}...`);
-const appLocation = process.env.SWA_LOCATION || resourceGroupLocation;
+const appLocation = getConfigValue("SWA_LOCATION", resourceGroupLocation);
 const app = ensureStaticWebApp(DEFAULT_APP_NAME, DEFAULT_RESOURCE_GROUP, appLocation, DEFAULT_SKU);
 
 console.log("Syncing SWA application settings...");
 syncAppSettings(DEFAULT_APP_NAME, DEFAULT_RESOURCE_GROUP, settings);
 deleteAppSettings(DEFAULT_APP_NAME, DEFAULT_RESOURCE_GROUP, settingsToDelete);
+const previewEnvironments = listEnvironmentNames(DEFAULT_APP_NAME, DEFAULT_RESOURCE_GROUP);
+for (const environmentName of previewEnvironments) {
+  syncAppSettings(DEFAULT_APP_NAME, DEFAULT_RESOURCE_GROUP, settings, environmentName);
+  deleteAppSettings(DEFAULT_APP_NAME, DEFAULT_RESOURCE_GROUP, settingsToDelete, environmentName);
+}
 
 console.log("Reading deployment token...");
 const deploymentToken = readDeploymentToken(DEFAULT_APP_NAME, DEFAULT_RESOURCE_GROUP);
