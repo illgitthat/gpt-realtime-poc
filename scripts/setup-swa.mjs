@@ -254,10 +254,9 @@ function readDeploymentToken(appName, resourceGroup) {
 const dotEnvVars = parseDotEnvFile(".dev.vars");
 const baseUrl = process.env.AZURE_OPENAI_BASE_URL || dotEnvVars.AZURE_OPENAI_BASE_URL || "";
 const apiKey = process.env.AZURE_OPENAI_API_KEY || dotEnvVars.AZURE_OPENAI_API_KEY || "";
-const tenantId = process.env.AZURE_TENANT_ID || dotEnvVars.AZURE_TENANT_ID || dotEnvVars.TmP_AZURE_TENANT_ID || "";
-const clientId = process.env.AZURE_CLIENT_ID || dotEnvVars.AZURE_CLIENT_ID || dotEnvVars.TmP_AZURE_CLIENT_ID || "";
-const clientSecret =
-  process.env.AZURE_CLIENT_SECRET || dotEnvVars.AZURE_CLIENT_SECRET || dotEnvVars.TmP_AZURE_CLIENT_SECRET || "";
+const tenantId = process.env.AZURE_TENANT_ID || dotEnvVars.AZURE_TENANT_ID || "";
+const clientId = process.env.AZURE_CLIENT_ID || dotEnvVars.AZURE_CLIENT_ID || "";
+const clientSecret = process.env.AZURE_CLIENT_SECRET || dotEnvVars.AZURE_CLIENT_SECRET || "";
 
 if (!baseUrl) {
   console.log("Missing AZURE_OPENAI_BASE_URL in environment or .dev.vars.");

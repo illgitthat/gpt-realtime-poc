@@ -135,6 +135,7 @@ Optional overrides:
 The backend exposes `/connect`.
 
 - Client posts JSON: `sdp`, `voice`, `instructions`
+- Client may also post `multipart/form-data` with fields: `sdp`, `voice`, `instructions`
 - Backend requests ephemeral token from Azure OpenAI (`/v1/realtime/client_secrets`)
 - Backend exchanges SDP at `/v1/realtime/calls`
 

@@ -6,6 +6,14 @@ const corsHeaders = {
 
 let cachedToken = null;
 
+class BadRequestError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "BadRequestError";
+    this.status = 400;
+  }
+}
+
 function buildSessionConfig(options = {}) {
   const session = {
     type: "realtime",
@@ -207,13 +215,78 @@ async function performSdpNegotiation(ephemeralToken, sdpOffer) {
   return response.text();
 }
 
-function parseConnectPayload(req) {
+function getHeader(req, name) {
+  const target = name.toLowerCase();
+  const headers = req && req.headers ? req.headers : {};
+
+  if (headers && typeof headers.get === "function") {
+    return String(headers.get(name) || headers.get(target) || "");
+  }
+
+  return String(headers[target] || headers[name] || "");
+}
+
+function parseJsonPayload(rawBody) {
+  try {
+    const parsed = JSON.parse(rawBody);
+    if (!parsed || typeof parsed !== "object") {
+      throw new BadRequestError("Expected JSON object payload.");
+    }
+    return parsed;
+  } catch (error) {
+    if (error instanceof BadRequestError) {
+      throw error;
+    }
+    throw new BadRequestError("Invalid JSON payload.");
+  }
+}
+
+async function parseMultipartPayload(req, contentType) {
+  const multipartBody = req.rawBody ?? req.body;
+
+  if (multipartBody == null || multipartBody === "") {
+    return {};
+  }
+
+  try {
+    const formRequest = new Request("http://localhost/connect", {
+      method: "POST",
+      headers: { "Content-Type": contentType },
+      body: multipartBody,
+    });
+    const formData = await formRequest.formData();
+    const payload = {};
+
+    for (const key of ["sdp", "voice", "instructions"]) {
+      const value = formData.get(key);
+      if (typeof value === "string") {
+        payload[key] = value;
+      }
+    }
+
+    return payload;
+  } catch (_error) {
+    throw new BadRequestError("Invalid multipart/form-data payload.");
+  }
+}
+
+async function parseConnectPayload(req) {
+  const contentType = getHeader(req, "Content-Type").toLowerCase();
+
+  if (contentType.includes("multipart/form-data")) {
+    return parseMultipartPayload(req, contentType);
+  }
+
   if (req.body && typeof req.body === "object") {
     return req.body;
   }
 
   if (typeof req.rawBody === "string" && req.rawBody.trim()) {
-    return JSON.parse(req.rawBody);
+    return parseJsonPayload(req.rawBody);
+  }
+
+  if (typeof req.body === "string" && req.body.trim()) {
+    return parseJsonPayload(req.body);
   }
 
   return {};
@@ -226,7 +299,7 @@ module.exports = async function connect(context, req) {
   }
 
   try {
-    const payload = parseConnectPayload(req);
+    const payload = await parseConnectPayload(req);
     const sdp = payload && typeof payload.sdp === "string" ? payload.sdp : "";
 
     if (!sdp) {
@@ -252,7 +325,7 @@ module.exports = async function connect(context, req) {
     };
   } catch (error) {
     context.res = {
-      status: 500,
+      status: error && error.status === 400 ? 400 : 500,
       headers: { "Content-Type": "application/json", ...corsHeaders },
       body: { error: String(error) },
     };
