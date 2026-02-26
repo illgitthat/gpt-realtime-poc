@@ -14,6 +14,17 @@ class BadRequestError extends Error {
   }
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value) && !Buffer.isBuffer(value);
+}
+
+function toErrorMessage(error) {
+  if (error && typeof error.message === "string" && error.message.trim()) {
+    return error.message;
+  }
+  return String(error);
+}
+
 function buildSessionConfig(options = {}) {
   const session = {
     type: "realtime",
@@ -227,9 +238,11 @@ function getHeader(req, name) {
 }
 
 function parseJsonPayload(rawBody) {
+  const bodyString = Buffer.isBuffer(rawBody) ? rawBody.toString("utf8") : String(rawBody);
+
   try {
-    const parsed = JSON.parse(rawBody);
-    if (!parsed || typeof parsed !== "object") {
+    const parsed = JSON.parse(bodyString);
+    if (!isPlainObject(parsed)) {
       throw new BadRequestError("Expected JSON object payload.");
     }
     return parsed;
@@ -277,7 +290,7 @@ async function parseConnectPayload(req) {
     return parseMultipartPayload(req, contentType);
   }
 
-  if (req.body && typeof req.body === "object") {
+  if (isPlainObject(req.body)) {
     return req.body;
   }
 
@@ -327,7 +340,7 @@ module.exports = async function connect(context, req) {
     context.res = {
       status: error && error.status === 400 ? 400 : 500,
       headers: { "Content-Type": "application/json", ...corsHeaders },
-      body: { error: String(error) },
+      body: { error: toErrorMessage(error) },
     };
   }
 };

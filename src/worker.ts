@@ -26,6 +26,15 @@ interface ConnectRequestPayload {
   instructions?: string;
 }
 
+class BadRequestError extends Error {}
+
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return String(error);
+}
+
 function buildSessionConfig(options: SessionOptions = {}) {
   const session: Record<string, unknown> = {
     type: "realtime",
@@ -241,9 +250,14 @@ async function parseConnectRequest(request: Request): Promise<ConnectRequestPayl
   const contentType = request.headers.get("Content-Type") || "";
 
   if (contentType.includes("application/json")) {
-    const body = await request.json<Partial<ConnectRequestPayload>>();
+    let body: Partial<ConnectRequestPayload>;
+    try {
+      body = await request.json<Partial<ConnectRequestPayload>>();
+    } catch (_error) {
+      throw new BadRequestError("Invalid JSON payload.");
+    }
     if (!body?.sdp || typeof body.sdp !== "string") {
-      throw new Error("Missing 'sdp' field");
+      throw new BadRequestError("Missing 'sdp' field");
     }
     return {
       sdp: body.sdp,
@@ -253,10 +267,15 @@ async function parseConnectRequest(request: Request): Promise<ConnectRequestPayl
   }
 
   if (contentType.includes("multipart/form-data")) {
-    const formData = await request.formData();
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch (_error) {
+      throw new BadRequestError("Invalid multipart/form-data payload.");
+    }
     const sdp = formData.get("sdp");
     if (!sdp || typeof sdp !== "string") {
-      throw new Error("Missing 'sdp' field");
+      throw new BadRequestError("Missing 'sdp' field");
     }
     const voice = formData.get("voice");
     const instructions = formData.get("instructions");
@@ -267,7 +286,7 @@ async function parseConnectRequest(request: Request): Promise<ConnectRequestPayl
     };
   }
 
-  throw new Error("Expected application/json or multipart/form-data");
+  throw new BadRequestError("Expected application/json or multipart/form-data");
 }
 
 export default {
@@ -295,7 +314,7 @@ export default {
           payload = await parseConnectRequest(request);
         } catch (error) {
           return new Response(
-            JSON.stringify({ error: String(error) }),
+            JSON.stringify({ error: toErrorMessage(error) }),
             { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
           );
         }
@@ -314,7 +333,7 @@ export default {
         });
       } catch (error) {
         return new Response(
-          JSON.stringify({ error: String(error) }),
+          JSON.stringify({ error: toErrorMessage(error) }),
           { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
         );
       }
