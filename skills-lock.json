@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "azure-static-web-apps": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "d8aa020f4c266800d5dce80d7ff9683d5114d42716f49776b3cc3d675b9aebc2"
+    }
+  }
+}
