@@ -509,14 +509,14 @@
         await peerConnection.setLocalDescription(offer);
 
         // Send SDP offer to /connect endpoint with session config
-        const formData = new FormData();
-        formData.append("sdp", offer.sdp);
-        formData.append("voice", voiceSelect.value);
-        formData.append("instructions", instructionsTextarea.value.trim());
-
         const connectResponse = await fetchWithRetry("/connect", {
           method: "POST",
-          body: formData,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sdp: offer.sdp,
+            voice: voiceSelect.value,
+            instructions: instructionsTextarea.value.trim(),
+          }),
         });
 
         if (!connectResponse.ok) {

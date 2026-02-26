@@ -10,9 +10,9 @@ declare namespace Cloudflare {
 		AZURE_OPENAI_BASE_URL: string;
 		AZURE_OPENAI_API_KEY: string;
 		WORKER_DOMAIN: string;
-		TmP_AZURE_TENANT_ID: string;
-		TmP_AZURE_CLIENT_ID: string;
-		TmP_AZURE_CLIENT_SECRET: string;
+		AZURE_TENANT_ID: string;
+		AZURE_CLIENT_ID: string;
+		AZURE_CLIENT_SECRET: string;
 	}
 }
 interface Env extends Cloudflare.Env {}
