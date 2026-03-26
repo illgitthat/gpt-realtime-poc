@@ -109,6 +109,19 @@
             </button>
             <div class="collapse-content">
               <div class="option-group">
+                <label for="provider" class="option-label">AI Model</label>
+                <div class="select-wrapper">
+                  <select id="provider" class="custom-select">
+                    <option value="gpt">GPT Realtime (Azure OpenAI)</option>
+                    <option value="gemini" selected>Gemini 3.1 Flash Live (Google)</option>
+                  </select>
+                  <svg class="select-arrow" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </div>
+              </div>
+
+              <div class="option-group">
                 <label for="voice" class="option-label">Assistant Voice</label>
                 <div class="select-wrapper">
                   <select id="voice" class="custom-select">
@@ -223,6 +236,7 @@
     const mobileSettingsButton = document.getElementById("mobile-settings");
     const mobileSettingsPanel = document.getElementById("mobile-settings-panel");
     const mobilePanelOverlay = document.getElementById("mobile-panel-overlay");
+    const providerSelect = document.getElementById("provider");
     const voiceSelect = document.getElementById("voice");
     const instructionsTextarea = document.getElementById("session-instructions");
     const transcriptContainer = document.getElementById("transcriptContainer");
@@ -291,7 +305,7 @@
 
       const label = document.createElement("span");
       label.className = "message-label";
-      label.textContent = role === "user" ? "You" : role === "assistant" ? "Assistant" : "Info";
+      label.textContent = role === "user" ? "You" : role === "assistant" ? getAssistantLabel() : "Info";
 
       const messageText = document.createElement("p");
       messageText.className = "message-text";
@@ -327,6 +341,9 @@
     function setButtonStates(sessionActive) {
       voiceSelect.disabled = sessionActive;
       instructionsTextarea.disabled = sessionActive;
+      if (providerSelect) providerSelect.disabled = sessionActive;
+      const mobileProviderEl = document.querySelector('.mobile-provider-select');
+      if (mobileProviderEl) mobileProviderEl.disabled = sessionActive;
 
       const mobileVoiceSelect = document.querySelector('.mobile-voice-select');
       const mobileInstructions = document.querySelector('.mobile-instructions');
@@ -427,6 +444,9 @@
     }
 
     async function startSession() {
+      if (providerSelect && providerSelect.value === 'gemini') {
+        return startGeminiSession();
+      }
       try {
         setStatus("connecting", "Connecting...");
         setButtonStates(true);
@@ -606,6 +626,14 @@
       }
     }
 
+    function getAssistantLabel() {
+      const provider = document.getElementById('provider')?.value || 'gpt';
+      const voice = document.getElementById('voice');
+      const voiceName = voice?.options[voice.selectedIndex]?.text?.split(' - ')[0] || 'Assistant';
+      const providerLabel = provider === 'gemini' ? 'Gemini' : 'OpenAI';
+      return `${voiceName} (${providerLabel})`;
+    }
+
     // Track streaming assistant transcript
     let currentAssistantTranscript = "";
     let assistantTranscriptElement = null;
@@ -622,7 +650,7 @@
             <svg viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" fill="currentColor"/></svg>
           </div>
           <div class="message-content">
-            <span class="message-label">Assistant</span>
+            <span class="message-label">${getAssistantLabel()}</span>
             <p class="message-text text"></p>
           </div>`;
         transcriptContainer.appendChild(assistantTranscriptElement);
@@ -639,6 +667,7 @@
     }
 
     function stopSession() {
+      cleanupGeminiSession();
       cleanupSession();
       setButtonStates(false);
       setStatus("", "Ready");
@@ -661,6 +690,280 @@
       currentAssistantTranscript = "";
       assistantTranscriptElement = null;
       pendingUserMessages.clear();
+    }
+
+    // ===== Gemini Live API Support =====
+    const gptVoices = [
+      { value: "alloy", label: "Alloy - Neutral" },
+      { value: "ash", label: "Ash - Warm" },
+      { value: "ballad", label: "Ballad - Expressive" },
+      { value: "coral", label: "Coral - Friendly" },
+      { value: "echo", label: "Echo - Clear" },
+      { value: "sage", label: "Sage - Calm" },
+      { value: "shimmer", label: "Shimmer - Bright" },
+      { value: "verse", label: "Verse - Dynamic" },
+    ];
+    const geminiVoices = [
+      { value: "Puck", label: "Puck - Playful" },
+      { value: "Charon", label: "Charon - Informative" },
+      { value: "Kore", label: "Kore - Firm" },
+      { value: "Fenrir", label: "Fenrir - Excitable" },
+      { value: "Aoede", label: "Aoede - Breezy" },
+    ];
+
+    function updateVoiceOptions(provider) {
+      const voices = provider === 'gemini' ? geminiVoices : gptVoices;
+      voiceSelect.innerHTML = '';
+      for (const v of voices) {
+        const opt = document.createElement('option');
+        opt.value = v.value;
+        opt.textContent = v.label;
+        voiceSelect.appendChild(opt);
+      }
+      const mobileVoice = document.querySelector('.mobile-voice-select');
+      if (mobileVoice) {
+        mobileVoice.innerHTML = voiceSelect.innerHTML;
+      }
+    }
+
+    if (providerSelect) {
+      providerSelect.addEventListener('change', () => {
+        updateVoiceOptions(providerSelect.value);
+      });
+    }
+
+    let geminiWs = null;
+    let geminiCaptureCtx = null;
+    let geminiPlaybackCtx = null;
+    let geminiStream = null;
+    let geminiNextPlayTime = 0;
+    let geminiAudioSources = [];
+    let geminiSetupDone = false;
+    let geminiProcessor = null;
+
+    function arrayBufferToBase64(buffer) {
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    }
+
+    function base64ToArrayBuffer(base64) {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes.buffer;
+    }
+
+    function startGeminiAudioCapture() {
+      const source = geminiCaptureCtx.createMediaStreamSource(geminiStream);
+      geminiProcessor = geminiCaptureCtx.createScriptProcessor(4096, 1, 1);
+      source.connect(geminiProcessor);
+      geminiProcessor.connect(geminiCaptureCtx.destination);
+      geminiProcessor.onaudioprocess = (e) => {
+        if (!geminiWs || geminiWs.readyState !== WebSocket.OPEN || !geminiSetupDone) return;
+        const float32 = e.inputBuffer.getChannelData(0);
+        const int16 = new Int16Array(float32.length);
+        for (let i = 0; i < float32.length; i++) {
+          const s = Math.max(-1, Math.min(1, float32[i]));
+          int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+        const base64 = arrayBufferToBase64(int16.buffer);
+        geminiWs.send(JSON.stringify({
+          realtimeInput: {
+            audio: {
+              data: base64,
+              mimeType: "audio/pcm;rate=16000"
+            }
+          }
+        }));
+      };
+    }
+
+    function playGeminiAudio(base64Data) {
+      if (!geminiPlaybackCtx) return;
+      const buffer = base64ToArrayBuffer(base64Data);
+      const int16 = new Int16Array(buffer);
+      const float32 = new Float32Array(int16.length);
+      for (let i = 0; i < int16.length; i++) {
+        float32[i] = int16[i] / 32768.0;
+      }
+      const audioBuffer = geminiPlaybackCtx.createBuffer(1, float32.length, 24000);
+      audioBuffer.getChannelData(0).set(float32);
+      const sourceNode = geminiPlaybackCtx.createBufferSource();
+      sourceNode.buffer = audioBuffer;
+      sourceNode.connect(geminiPlaybackCtx.destination);
+      const now = geminiPlaybackCtx.currentTime;
+      const startTime = Math.max(now + 0.05, geminiNextPlayTime);
+      sourceNode.start(startTime);
+      geminiNextPlayTime = startTime + audioBuffer.duration;
+      geminiAudioSources.push(sourceNode);
+      sourceNode.onended = () => {
+        const idx = geminiAudioSources.indexOf(sourceNode);
+        if (idx >= 0) geminiAudioSources.splice(idx, 1);
+      };
+    }
+
+    function clearGeminiPlaybackQueue() {
+      for (const src of geminiAudioSources) {
+        try { src.stop(); } catch {}
+      }
+      geminiAudioSources = [];
+      geminiNextPlayTime = 0;
+    }
+
+    function handleGeminiMessage(msg) {
+      if (msg.setupComplete) {
+        geminiSetupDone = true;
+        startGeminiAudioCapture();
+        setStatus("connected", "Connected - listening...");
+        addTranscript("system", "Connected! Start speaking...");
+        return;
+      }
+
+      if (msg.serverContent) {
+        const content = msg.serverContent;
+        if (content.modelTurn && content.modelTurn.parts) {
+          for (const part of content.modelTurn.parts) {
+            if (part.inlineData && part.inlineData.data) {
+              playGeminiAudio(part.inlineData.data);
+            }
+            if (part.text) {
+              appendAssistantTranscript(part.text);
+            }
+          }
+        }
+
+        if (content.inputTranscription && content.inputTranscription.text) {
+          addTranscript("user", content.inputTranscription.text);
+        }
+        if (content.outputTranscription && content.outputTranscription.text) {
+          appendAssistantTranscript(content.outputTranscription.text);
+        }
+
+        if (content.turnComplete) {
+          finalizeAssistantTranscript();
+          setStatus("connected", "Listening...");
+        }
+        if (content.interrupted) {
+          clearGeminiPlaybackQueue();
+          finalizeAssistantTranscript();
+        }
+      }
+    }
+
+    async function startGeminiSession() {
+      try {
+        setStatus("connecting", "Connecting...");
+        setButtonStates(true);
+
+        if (!mobileSettingsPanel.classList.contains('hidden')) {
+          toggleMobilePanel();
+        }
+
+        // Get ephemeral token from our backend
+        const tokenResp = await fetch('/gemini/token', { method: 'POST' });
+        if (!tokenResp.ok) {
+          const err = await tokenResp.json().catch(() => ({}));
+          throw new Error(err.error || `Token request failed: ${tokenResp.status}`);
+        }
+        const { token } = await tokenResp.json();
+        if (!token) throw new Error('No token received');
+
+        geminiStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        geminiCaptureCtx = new AudioContext({ sampleRate: 16000 });
+        geminiPlaybackCtx = new AudioContext({ sampleRate: 24000 });
+
+        // Connect directly to Gemini using the ephemeral token
+        const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=${token}`;
+        geminiWs = new WebSocket(wsUrl);
+
+        geminiWs.onopen = () => {
+          const voice = voiceSelect.value;
+          const instructions = instructionsTextarea.value.trim() || 'You are a helpful assistant.';
+          geminiWs.send(JSON.stringify({
+            setup: {
+              model: "models/gemini-3.1-flash-live-preview",
+              generationConfig: {
+                responseModalities: ["AUDIO"],
+                speechConfig: {
+                  voiceConfig: {
+                    prebuiltVoiceConfig: {
+                      voiceName: voice
+                    }
+                  }
+                }
+              },
+              systemInstruction: {
+                parts: [{ text: instructions }]
+              },
+              inputAudioTranscription: {},
+              outputAudioTranscription: {}
+            }
+          }));
+        };
+
+        geminiWs.onmessage = async (event) => {
+          try {
+            let text = event.data;
+            if (event.data instanceof Blob) {
+              text = await event.data.text();
+            }
+            const msg = JSON.parse(text);
+            handleGeminiMessage(msg);
+          } catch (e) {
+            console.error("Failed to parse Gemini message:", e);
+          }
+        };
+
+        geminiWs.onerror = (error) => {
+          console.error("Gemini WebSocket error:", error);
+        };
+
+        geminiWs.onclose = () => {
+          if (geminiSetupDone) {
+            setStatus("", "Disconnected");
+            setButtonStates(false);
+          }
+          cleanupGeminiSession();
+        };
+
+      } catch (error) {
+        console.error("Gemini session error:", error);
+        addTranscript("system", "Unable to connect. Please try again.");
+        setStatus("", "Connection failed");
+        setButtonStates(false);
+        cleanupGeminiSession();
+      }
+    }
+
+    function cleanupGeminiSession() {
+      geminiSetupDone = false;
+      if (geminiWs) {
+        try { geminiWs.close(); } catch {}
+        geminiWs = null;
+      }
+      if (geminiStream) {
+        geminiStream.getTracks().forEach(t => t.stop());
+        geminiStream = null;
+      }
+      if (geminiProcessor) {
+        try { geminiProcessor.disconnect(); } catch {}
+        geminiProcessor = null;
+      }
+      if (geminiCaptureCtx) {
+        try { geminiCaptureCtx.close(); } catch {}
+        geminiCaptureCtx = null;
+      }
+      clearGeminiPlaybackQueue();
+      if (geminiPlaybackCtx) {
+        try { geminiPlaybackCtx.close(); } catch {}
+        geminiPlaybackCtx = null;
+      }
     }
 
     function showWelcomeMessage() {
@@ -752,6 +1055,13 @@
           </div>
         </div>
         <div class="mobile-option-group">
+          <label>AI Model</label>
+          <select class="mobile-provider-select mobile-voice-select">
+            <option value="gpt">GPT Realtime (Azure OpenAI)</option>
+            <option value="gemini" selected>Gemini 3.1 Flash Live (Google)</option>
+          </select>
+        </div>
+        <div class="mobile-option-group">
           <label>Voice</label>
           <select class="mobile-voice-select">
             <option value="alloy">Alloy - Neutral</option>
@@ -779,6 +1089,19 @@
           setActiveStyleCard(btn.dataset.style);
         });
       });
+
+      // Sync mobile provider select
+      const mobileProvider = mobileContent.querySelector('.mobile-provider-select');
+      if (mobileProvider && providerSelect) {
+        mobileProvider.value = providerSelect.value;
+        mobileProvider.addEventListener('change', (e) => {
+          providerSelect.value = e.target.value;
+          updateVoiceOptions(e.target.value);
+        });
+        providerSelect.addEventListener('change', () => {
+          mobileProvider.value = providerSelect.value;
+        });
+      }
 
       // Sync mobile voice select
       const mobileVoice = mobileContent.querySelector('.mobile-voice-select');
@@ -845,6 +1168,7 @@
 
     // Initialize default prompt value and UI state
     setActiveStyleCard('default');
+    updateVoiceOptions(providerSelect.value);
     updateClearButtonVisibility();
   </script>
 </body>

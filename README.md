@@ -1,9 +1,14 @@
-# Azure OpenAI /realtime Audio SDK
+# Realtime Voice Assistant
 
 > **Note:** This project was originally forked and took inspiration from [Azure-Samples/aoai-realtime-audio-sdk](https://github.com/Azure-Samples/aoai-realtime-audio-sdk)
 
-A WebRTC-based sample for low-latency, "speech in, speech out" conversations with `gpt-realtime-1.5`.
-The browser sends an SDP offer to `/connect`, and the backend exchanges it with Azure OpenAI realtime APIs.
+A WebRTC/WebSocket-based sample for low-latency, "speech in, speech out" voice conversations.
+
+Supported models:
+- **Azure OpenAI `gpt-realtime-1.5`** (default) — WebRTC via SDP exchange at `/connect`
+- **Google Gemini `gemini-3.1-flash-live-preview`** — WebSocket via ephemeral token from `/gemini/token`
+
+The frontend lets users pick the provider and voice before starting a session.
 
 ## Deployment Paths
 
@@ -25,6 +30,7 @@ Use Azure SWA if you want Azure-hosted static frontend + Azure Functions API.
 Shared environment values:
 
 ```bash
+# Azure OpenAI (required for GPT)
 AZURE_OPENAI_BASE_URL=https://YOUR-RESOURCE-NAME.openai.azure.com
 
 # Option A: API key
@@ -34,6 +40,9 @@ AZURE_OPENAI_API_KEY=...
 AZURE_TENANT_ID=...
 AZURE_CLIENT_ID=...
 AZURE_CLIENT_SECRET=...
+
+# Google Gemini (optional, enables Gemini provider)
+GEMINI_API_KEY=...
 ```
 
 For local Worker development these can live in `.dev.vars`.
@@ -68,6 +77,7 @@ wrangler secret put AZURE_TENANT_ID
 wrangler secret put AZURE_CLIENT_ID
 wrangler secret put AZURE_CLIENT_SECRET
 wrangler secret put AZURE_OPENAI_API_KEY
+wrangler secret put GEMINI_API_KEY
 
 # Deploy with custom domain from .dev.vars
 bun run deploy
@@ -135,17 +145,25 @@ Optional overrides:
 
 ## API Overview
 
-The backend exposes `/connect`.
+The backend exposes two endpoints:
+
+### `POST /connect` (Azure OpenAI / GPT)
 
 - Client posts JSON: `sdp`, `voice`, `instructions`
 - Client may also post `multipart/form-data` with fields: `sdp`, `voice`, `instructions`
 - Backend requests ephemeral token from Azure OpenAI (`/v1/realtime/client_secrets`)
 - Backend exchanges SDP at `/v1/realtime/calls`
 
+### `POST /gemini/token` (Google Gemini)
+
+- Returns a short-lived ephemeral token for the Gemini Live API
+- Client connects directly to Gemini's WebSocket using the token
+
 ## Architecture
 
 ```text
-Browser <-> (Cloudflare Worker OR SWA API Function) <-> Azure OpenAI /realtime
+GPT path:    Browser <-> Worker/SWA <-> Azure OpenAI /realtime (WebRTC)
+Gemini path: Browser <-> Gemini WebSocket (direct, token from Worker/SWA)
 ```
 
 ## Code Map
@@ -160,3 +178,4 @@ Browser <-> (Cloudflare Worker OR SWA API Function) <-> Azure OpenAI /realtime
 - https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/realtime-audio-webrtc
 - https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/realtime-audio
 - https://platform.openai.com/docs/guides/realtime-webrtc
+- https://ai.google.dev/gemini-api/docs/live

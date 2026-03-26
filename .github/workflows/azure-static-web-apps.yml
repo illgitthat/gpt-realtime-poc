@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and Deploy Job
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Skip deploy when token is missing
         if: ${{ env.SWA_DEPLOYMENT_TOKEN == '' }}
         run: echo "AZURE_STATIC_WEB_APPS_API_TOKEN is not set; skipping deploy."

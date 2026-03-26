@@ -6,6 +6,7 @@ interface Env {
   AZURE_TENANT_ID?: string;
   AZURE_CLIENT_ID?: string;
   AZURE_CLIENT_SECRET?: string;
+  GEMINI_API_KEY?: string;
   ASSETS: Fetcher;
 }
 
@@ -92,6 +93,52 @@ export default {
 
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
+    }
+
+    if (pathname === "/gemini/token" && request.method === "POST") {
+      if (!env.GEMINI_API_KEY) {
+        return new Response(
+          JSON.stringify({ error: "Gemini API key not configured" }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+        );
+      }
+
+      try {
+        const expireTime = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+        const newSessionExpireTime = new Date(Date.now() + 2 * 60 * 1000).toISOString();
+
+        const tokenResp = await fetch(
+          `https://generativelanguage.googleapis.com/v1alpha/auth_tokens?key=${env.GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              uses: 1,
+              expireTime,
+              newSessionExpireTime,
+            }),
+          },
+        );
+
+        if (!tokenResp.ok) {
+          const text = await tokenResp.text();
+          return new Response(
+            JSON.stringify({ error: `Token creation failed: ${tokenResp.status} - ${text}` }),
+            { status: 502, headers: { "Content-Type": "application/json", ...corsHeaders } },
+          );
+        }
+
+        const data = await tokenResp.json<{ name?: string }>();
+        return new Response(
+          JSON.stringify({ token: data.name }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
+        );
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: toErrorMessage(error) }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+        );
+      }
     }
 
     if (pathname === "/connect" && request.method === "POST") {
