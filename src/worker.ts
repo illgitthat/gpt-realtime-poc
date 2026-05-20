@@ -3,6 +3,7 @@ import realtimeCore from "../api/shared/realtime-core.js";
 interface Env {
   AZURE_OPENAI_BASE_URL: string;
   AZURE_OPENAI_API_KEY?: string;
+  AZURE_OPENAI_DEPLOYMENT_NAME?: string;
   AZURE_TENANT_ID?: string;
   AZURE_CLIENT_ID?: string;
   AZURE_CLIENT_SECRET?: string;
@@ -16,6 +17,7 @@ type TokenCache = {
 };
 
 interface SessionOptions {
+  model?: string;
   voice?: string;
   instructions?: string;
 }
@@ -154,6 +156,7 @@ export default {
         }
 
         const sessionOptions: SessionOptions = {
+          model: env.AZURE_OPENAI_DEPLOYMENT_NAME,
           voice: payload.voice || "alloy",
           instructions: payload.instructions || "",
         };

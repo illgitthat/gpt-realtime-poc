@@ -5,7 +5,7 @@
 A WebRTC/WebSocket-based sample for low-latency, "speech in, speech out" voice conversations.
 
 Supported models:
-- **Azure OpenAI `gpt-realtime-1.5`** (default) — WebRTC via SDP exchange at `/connect`
+- **Azure OpenAI `gpt-realtime-2`** (default) — WebRTC via SDP exchange at `/connect`
 - **Google Gemini `gemini-3.1-flash-live-preview`** — WebSocket via ephemeral token from `/gemini/token`
 
 The frontend lets users pick the provider and voice before starting a session.
@@ -31,7 +31,8 @@ Shared environment values:
 
 ```bash
 # Azure OpenAI (required for GPT)
-AZURE_OPENAI_BASE_URL=https://YOUR-RESOURCE-NAME.openai.azure.com
+AZURE_OPENAI_BASE_URL=https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-realtime-2
 
 # Option A: API key
 AZURE_OPENAI_API_KEY=...
@@ -48,6 +49,7 @@ GEMINI_API_KEY=...
 For local Worker development these can live in `.dev.vars`.
 If both API key and AAD credentials exist, API key auth is used.
 For `setup:swa` and `deploy:swa`, values in `.dev.vars` take precedence over same-named shell environment variables.
+`AZURE_OPENAI_BASE_URL` can be either the resource origin or a GA `/openai/v1` gateway URL; the backend normalizes both forms.
 
 ## Local Development
 
@@ -73,6 +75,7 @@ Open `http://localhost:4280/`.
 
 ```bash
 wrangler secret put AZURE_OPENAI_BASE_URL
+wrangler secret put AZURE_OPENAI_DEPLOYMENT_NAME
 wrangler secret put AZURE_TENANT_ID
 wrangler secret put AZURE_CLIENT_ID
 wrangler secret put AZURE_CLIENT_SECRET

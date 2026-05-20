@@ -9,6 +9,7 @@ declare namespace Cloudflare {
 		ASSETS: Fetcher;
 		AZURE_OPENAI_BASE_URL: string;
 		AZURE_OPENAI_API_KEY: string;
+		AZURE_OPENAI_DEPLOYMENT_NAME: string;
 		WORKER_DOMAIN: string;
 		AZURE_TENANT_ID: string;
 		AZURE_CLIENT_ID: string;

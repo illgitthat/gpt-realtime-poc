@@ -6,9 +6,11 @@ function toErrorMessage(error) {
 }
 
 function buildSessionConfig(options = {}) {
+  const model = String(options.model || "").trim() || "gpt-realtime-2";
+
   const session = {
     type: "realtime",
-    model: "gpt-realtime-1.5",
+    model,
   };
 
   if (options.voice) {
@@ -187,10 +189,20 @@ async function getEphemeralToken({
   return data.value;
 }
 
-async function performSdpNegotiation({ fetchImpl, baseUrl, ephemeralToken, sdpOffer }) {
+function getGatewaySubscriptionHeaders(baseUrl, auth) {
+  const hostname = new URL(baseUrl).hostname;
+  if (auth && auth.source === "apiKey" && hostname.endsWith(".azure-api.net")) {
+    return auth.headers;
+  }
+
+  return {};
+}
+
+async function performSdpNegotiation({ fetchImpl, baseUrl, auth, ephemeralToken, sdpOffer }) {
   const response = await fetchWithRetry(fetchImpl, `${baseUrl}/v1/realtime/calls`, {
     method: "POST",
     headers: {
+      ...getGatewaySubscriptionHeaders(baseUrl, auth),
       Authorization: `Bearer ${ephemeralToken}`,
       "Content-Type": "application/sdp",
     },
@@ -241,6 +253,7 @@ async function exchangeSdpOffer({
   const sdpAnswer = await performSdpNegotiation({
     fetchImpl,
     baseUrl: normalizedBaseUrl,
+    auth,
     ephemeralToken,
     sdpOffer,
   });
