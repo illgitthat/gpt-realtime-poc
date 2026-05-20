@@ -309,6 +309,8 @@ function readDeploymentToken(appName, resourceGroup) {
 
 const baseUrl = getConfigValue("AZURE_OPENAI_BASE_URL", "");
 const apiKey = getConfigValue("AZURE_OPENAI_API_KEY", "");
+const deploymentName = getConfigValue("AZURE_OPENAI_DEPLOYMENT_NAME", "");
+const transcriptionDeploymentName = getConfigValue("AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT_NAME", "");
 const tenantId = getConfigValue("AZURE_TENANT_ID", "");
 const clientId = getConfigValue("AZURE_CLIENT_ID", "");
 const clientSecret = getConfigValue("AZURE_CLIENT_SECRET", "");
@@ -318,7 +320,15 @@ if (!baseUrl) {
   process.exit(1);
 }
 
-const settings = { AZURE_OPENAI_BASE_URL: baseUrl };
+const settings = {
+  AZURE_OPENAI_BASE_URL: baseUrl,
+};
+if (deploymentName) {
+  settings.AZURE_OPENAI_DEPLOYMENT_NAME = deploymentName;
+}
+if (transcriptionDeploymentName) {
+  settings.AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT_NAME = transcriptionDeploymentName;
+}
 const settingsToDelete = [];
 
 if (apiKey) {

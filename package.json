@@ -14,15 +14,18 @@
     "deploy:swa": "node ./scripts/deploy-swa.mjs",
     "start:cli": "bun index.js"
   },
+  "engines": {
+    "node": ">=22"
+  },
   "devDependencies": {
-    "@azure/static-web-apps-cli": "^2.0.8",
-    "@types/node": "^25.5.0",
-    "typescript": "^6.0.2",
-    "wrangler": "^4.77.0"
+    "@azure/static-web-apps-cli": "^2.0.9",
+    "@types/node": "^25.8.0",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.92.0"
   },
   "dependencies": {
     "@azure/identity": "^4.13.1",
-    "@google/genai": "^1.46.0",
-    "openai": "^6.33.0"
+    "@google/genai": "^1.52.0",
+    "openai": "^6.38.0"
   }
 }
