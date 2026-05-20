@@ -145,6 +145,7 @@ module.exports = async function connect(context, req) {
       },
       sessionOptions: {
         model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+        transcriptionModel: process.env.AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT_NAME,
         voice: typeof payload.voice === "string" && payload.voice ? payload.voice : "alloy",
         instructions: typeof payload.instructions === "string" ? payload.instructions : "",
       },

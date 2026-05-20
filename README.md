@@ -33,6 +33,7 @@ Shared environment values:
 # Azure OpenAI (required for GPT)
 AZURE_OPENAI_BASE_URL=https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1
 AZURE_OPENAI_DEPLOYMENT_NAME=gpt-realtime-2
+AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT_NAME=gpt-realtime-whisper
 
 # Option A: API key
 AZURE_OPENAI_API_KEY=...
@@ -50,6 +51,7 @@ For local Worker development these can live in `.dev.vars`.
 If both API key and AAD credentials exist, API key auth is used.
 For `setup:swa` and `deploy:swa`, values in `.dev.vars` take precedence over same-named shell environment variables.
 `AZURE_OPENAI_BASE_URL` can be either the resource origin or a GA `/openai/v1` gateway URL; the backend normalizes both forms.
+`AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT_NAME` should be the Azure deployment name for your realtime transcription model. If omitted, the app defaults to `gpt-realtime-whisper`.
 
 ## Local Development
 

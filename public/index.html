@@ -480,21 +480,6 @@
 
         dataChannel.addEventListener("open", () => {
           setStatus("connected", "Connected - listening...");
-
-          const sessionUpdate = {
-            type: "session.update",
-            session: {
-              type: "realtime",
-              audio: {
-                input: {
-                  transcription: {
-                    model: "gpt-4o-transcribe"
-                  }
-                }
-              }
-            }
-          };
-          dataChannel.send(JSON.stringify(sessionUpdate));
         });
 
         dataChannel.addEventListener("message", (event) => {

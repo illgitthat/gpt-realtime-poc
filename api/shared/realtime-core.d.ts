@@ -5,6 +5,7 @@ export type TokenCache = {
 
 export type SessionOptions = {
   model?: string;
+  transcriptionModel?: string;
   voice?: string;
   instructions?: string;
 };

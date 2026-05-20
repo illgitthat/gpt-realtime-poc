@@ -7,14 +7,23 @@ function toErrorMessage(error) {
 
 function buildSessionConfig(options = {}) {
   const model = String(options.model || "").trim() || "gpt-realtime-2";
+  const transcriptionModel =
+    String(options.transcriptionModel || "").trim() || "gpt-realtime-whisper";
 
   const session = {
     type: "realtime",
     model,
+    audio: {
+      input: {
+        transcription: {
+          model: transcriptionModel,
+        },
+      },
+    },
   };
 
   if (options.voice) {
-    session.audio = { output: { voice: options.voice } };
+    session.audio.output = { voice: options.voice };
   }
 
   if (options.instructions && options.instructions.trim()) {
