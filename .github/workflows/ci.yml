@@ -1,0 +1,32 @@
+name: Check GPT Live
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npm test
+      - run: npm run test:deployment
+      - run: npm run typecheck
+      - run: npm run types:check
+      - run: npm run deploy:dry-run
+      - run: npm run deploy:preview:dry-run

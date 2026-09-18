@@ -4,6 +4,8 @@ node_modules/
 # Wrangler
 .wrangler/
 .dev.vars
+.dev.vars.*
+wrangler.tmp.json
 
 # Logs
 *.log
@@ -16,5 +18,9 @@ dist/
 
 # Environment files
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+api/local.settings.json
+
+# Local audio recordings and diagnostic artifacts
+artifacts/

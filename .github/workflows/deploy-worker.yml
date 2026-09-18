@@ -6,11 +6,23 @@ on:
       - main
   workflow_dispatch:
     inputs:
+      target:
+        description: Deployment target (production is allowed only from main)
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - production
       dry_run:
         description: Run Wrangler in dry-run mode instead of deploying
         required: true
         default: true
         type: boolean
+
+concurrency:
+  group: cloudflare-${{ github.event_name == 'push' && 'production' || inputs.target }}
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -23,6 +35,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Reject production dispatch from a feature branch
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'production' && github.ref != 'refs/heads/main'
+        run: |
+          echo "Production deployments and production dispatches require the main ref."
+          exit 1
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -32,13 +50,24 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build & Deploy Worker
+      - name: Test and typecheck
+        run: npm test && npm run test:deployment && npm run typecheck && npm run types:check
+
+      - name: Validate production and isolated preview bundles
+        run: npm run deploy:dry-run && npm run deploy:preview:dry-run
+
+      - name: Deploy isolated preview with atomic runtime configuration
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'preview' && !inputs.dry_run
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.dry_run }}" = "true" ]; then
-            npx wrangler deploy --dry-run
-          else
-            npx wrangler deploy
-          fi
+          LIVE_PREVIEW_ENV: ${{ secrets.LIVE_PREVIEW_ENV }}
+        run: npm run deploy:preview
+
+      - name: Deploy production with atomic runtime configuration
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (inputs.target == 'production' && !inputs.dry_run))
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          LIVE_PRODUCTION_ENV: ${{ secrets.LIVE_PRODUCTION_ENV }}
+        run: npm run deploy:production

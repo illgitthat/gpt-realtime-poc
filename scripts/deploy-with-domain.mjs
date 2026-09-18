@@ -1,78 +1,58 @@
-import fs from "node:fs";
-import path from "node:path";
+import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { deploymentChildEnv, readDeploymentEnv } from "./runtime-env.mjs";
 
-function parseEnvFile(content) {
-    const env = {};
-    for (const rawLine of content.split(/\r?\n/)) {
-        const line = rawLine.trim();
-        if (!line || line.startsWith("#")) {
-            continue;
-        }
-        const eqIndex = line.indexOf("=");
-        if (eqIndex === -1) {
-            continue;
-        }
-        const key = line.slice(0, eqIndex).trim();
-        const value = line.slice(eqIndex + 1).trim();
-        if (key) {
-            env[key] = value;
-        }
-    }
-    return env;
+export function deployProduction({
+  environment = process.env,
+  args = process.argv.slice(2),
+  config = JSON.parse(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8")),
+  run = spawnSync,
+} = {}) {
+  if (!args.includes("--production") || args.some((arg) => !["--production", "--dry-run"].includes(arg))) {
+    throw new Error("Use npm run deploy:production [-- --dry-run]. Target and domain overrides are not allowed.");
+  }
+  const settings = readDeploymentEnv(environment.LIVE_PRODUCTION_ENV, "LIVE_PRODUCTION_ENV");
+  const dryRun = args.includes("--dry-run");
+  const cwd = fileURLToPath(new URL("../", import.meta.url));
+  const childEnvironment = deploymentChildEnv(environment);
+  const onMain = environment.GITHUB_ACTIONS === "true"
+    ? environment.GITHUB_REF === "refs/heads/main"
+    : (() => {
+      const branch = run("git", ["branch", "--show-current"], { cwd, env: childEnvironment, encoding: "utf8" });
+      return branch.status === 0 && branch.stdout.trim() === "main";
+    })();
+  if (!dryRun && !onMain) {
+    throw new Error("Production deployment is allowed only from main. Use deploy:preview for feature branches.");
+  }
+  if (
+    config.name !== "gpt-realtime-poc" ||
+    !config.routes?.some((route) => route.pattern === "voice.adamcbloom.com" && route.custom_domain === true)
+  ) {
+    throw new Error("Production Worker name or custom domain is missing from wrangler.jsonc.");
+  }
+  const wrangler = fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js", import.meta.url));
+  // Convert Node's subprocess socket to a real pipe before Wrangler opens /dev/stdin.
+  const result = run("bash", [
+    "-o", "pipefail", "-c", 'cat | exec "$@"', "wrangler-stdin",
+    process.execPath, wrangler, "deploy", "--env", "", "--keep-vars",
+    "--secrets-file", "/dev/stdin", ...(dryRun ? ["--dry-run"] : []),
+  ], {
+    cwd,
+    env: childEnvironment,
+    input: JSON.stringify(settings),
+    stdio: ["pipe", "inherit", "inherit"],
+  });
+  if (result.status !== 0) {
+    throw new Error("Atomic production deployment failed.");
+  }
 }
 
-const cwd = process.cwd();
-const configPath = path.join(cwd, "wrangler.jsonc");
-const envPath = path.join(cwd, ".dev.vars");
-
-if (!fs.existsSync(configPath)) {
-    console.error("Missing wrangler.jsonc in the current directory.");
-    process.exit(1);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    deployProduction();
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
+  }
 }
-
-const configText = fs.readFileSync(configPath, "utf8");
-let config;
-try {
-    config = JSON.parse(configText);
-} catch (error) {
-    console.error("wrangler.jsonc must be valid JSON for this script to parse it.");
-    console.error(String(error));
-    process.exit(1);
-}
-
-if (!fs.existsSync(envPath)) {
-    console.error("Missing .dev.vars. Add WORKER_DOMAIN to that file.");
-    process.exit(1);
-}
-
-const envVars = parseEnvFile(fs.readFileSync(envPath, "utf8"));
-const domain = envVars.WORKER_DOMAIN || envVars.WORKER_ROUTE;
-
-if (!domain) {
-    console.error("Missing WORKER_DOMAIN (or WORKER_ROUTE) in .dev.vars.");
-    process.exit(1);
-}
-
-config.routes = [
-    {
-        pattern: domain,
-        custom_domain: true,
-    },
-];
-
-const tmpConfigPath = path.join(cwd, "wrangler.tmp.json");
-fs.writeFileSync(tmpConfigPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
-
-const extraArgs = process.argv.slice(2);
-const result = spawnSync("wrangler", ["deploy", "--config", tmpConfigPath, ...extraArgs], {
-    stdio: "inherit",
-});
-
-try {
-    fs.rmSync(tmpConfigPath, { force: true });
-} catch (error) {
-    console.error("Failed to remove temporary wrangler config:", error);
-}
-
-process.exit(result.status ?? 1);
