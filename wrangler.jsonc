@@ -2,12 +2,25 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "gpt-realtime-poc",
   "main": "src/worker.ts",
-  "compatibility_date": "2026-02-03",
+  "compatibility_date": "2026-09-18",
   "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "voice.adamcbloom.com",
+      "custom_domain": true
+    }
+  ],
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
     "html_handling": "auto-trailing-slash"
+  },
+  "env": {
+    "preview": {
+      "name": "gpt-realtime-poc-live-preview",
+      "workers_dev": true,
+      "routes": []
+    }
   },
   "observability": {
     "logs": {

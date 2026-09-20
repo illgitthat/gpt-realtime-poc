@@ -1,192 +1,111 @@
-# Realtime Voice Assistant
+# GPT Live Voice
 
-> **Note:** This project was originally forked and took inspiration from [Azure-Samples/aoai-realtime-audio-sdk](https://github.com/Azure-Samples/aoai-realtime-audio-sdk)
+Voice chat, language tutoring, and interview practice with GPT Live.
+Runs on Cloudflare Workers or Azure Static Web Apps.
 
-A WebRTC/WebSocket-based sample for low-latency, "speech in, speech out" voice conversations.
+<p>
+  <img src="./docs/images/voice-chat.png" width="280" alt="Voice chat with three conversation modes">
+  <img src="./docs/images/language-tutor.png" width="280" alt="Mandarin tutor with Chinese characters, pinyin, and an English meaning">
+</p>
 
-Supported models:
-- **Azure OpenAI `gpt-realtime-2`** (default) — WebRTC via SDP exchange at `/connect`
-  - User speech transcription is configured with an Azure `gpt-realtime-whisper` deployment.
-- **Google Gemini `gemini-3.1-flash-live-preview`** — WebSocket via ephemeral token from `/gemini/token`
+## Run locally
 
-The frontend lets users pick the provider and voice before starting a session.
+Requires Node.js 22+, npm, and an Azure APIM gateway with
+`/openai/v1/live/sessions` support.
 
-## Deployment Paths
+Create `.dev.vars`:
 
-This repo supports two production deployment targets:
-
-1. **Cloudflare Worker**
-2. **Azure Static Web Apps (SWA)**
-
-Use Cloudflare if you want the existing Worker deployment flow.
-Use Azure SWA if you want Azure-hosted static frontend + Azure Functions API.
-
-## Prerequisites
-
-- Bun / Node.js
-- Azure CLI (`az`) logged in to the target subscription
-- GitHub CLI (`gh`) authenticated (required for Azure SWA GitHub Actions setup)
-- Azure OpenAI credentials
-
-Shared environment values:
-
-```bash
-# Azure OpenAI (required for GPT)
-AZURE_OPENAI_BASE_URL=https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1
-
-# Azure deployment name for the speech-to-speech model
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-realtime-2
-
-# Azure deployment name for realtime input transcription
-AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT_NAME=gpt-realtime-whisper
-
-# Option A: API key
-AZURE_OPENAI_API_KEY=...
-
-# Option B: AAD service principal
-AZURE_TENANT_ID=...
-AZURE_CLIENT_ID=...
-AZURE_CLIENT_SECRET=...
-
-# Google Gemini (optional, enables Gemini provider)
-GEMINI_API_KEY=...
+```dotenv
+AZURE_OPENAI_BASE_URL=https://gateway.example.com/general/openai/v1
+AZURE_OPENAI_API_KEY=your-apim-subscription-key
 ```
 
-For local Worker development these can live in `.dev.vars`.
-If both API key and AAD credentials exist, API key auth is used.
-For `setup:swa` and `deploy:swa`, values in `.dev.vars` take precedence over same-named shell environment variables.
-`AZURE_OPENAI_BASE_URL` can be either the resource origin or a GA `/openai/v1` gateway URL; the backend normalizes both forms.
-`AZURE_OPENAI_DEPLOYMENT_NAME` and `AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT_NAME` are Azure deployment names, not necessarily base model names. If `AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT_NAME` is omitted, the app defaults to `gpt-realtime-whisper`.
-
-## Local Development
-
-Cloudflare Worker local dev:
-
 ```bash
-bun install
-bun run dev
+npm ci
+npm run dev
 ```
 
-Open `http://localhost:8787/`.
+Open http://localhost:8787.
 
-Azure SWA emulator local dev:
+## Configuration
+
+| Environment variable | Value |
+| --- | --- |
+| `AZURE_OPENAI_BASE_URL` | APIM gateway URL ending in `/openai/v1`. |
+| `AZURE_OPENAI_API_KEY` | APIM subscription key. |
+| `AZURE_OPENAI_DEPLOYMENT_NAME` | Defaults to `gpt-live-1`. |
+| `AZURE_OPENAI_REASONING_DEPLOYMENT_NAME` | Defaults to `gpt-5.6-sol`. |
+
+APIM authenticates to Foundry with managed identity.
+
+## Deploy
+
+### Cloudflare Workers
+
+Set your Worker names and domain in `wrangler.jsonc` and the target checks in
+`scripts/deploy-preview.mjs` and `scripts/deploy-with-domain.mjs`.
+
+The [deployment workflow](.github/workflows/deploy-worker.yml) deploys `main`
+automatically. Manual runs default to a preview dry-run. GitHub configuration:
+
+- Secrets: `CLOUDFLARE_API_TOKEN`, `LIVE_PREVIEW_ENV`, `LIVE_PRODUCTION_ENV`.
+- Variable: `CLOUDFLARE_ACCOUNT_ID`.
+
+Each `LIVE_*_ENV` is a JSON object containing the server variables above.
+For CLI deployment, authenticate with Cloudflare and export the corresponding
+`LIVE_*_ENV` in your shell. Bash is required.
 
 ```bash
-bun install
-bun run dev:swa
+npm run deploy:preview
+npm run deploy:production  # Requires main
 ```
 
-Open `http://localhost:4280/`.
+### Azure Static Web Apps
 
-## Cloudflare Deployment
-
-```bash
-wrangler secret put AZURE_OPENAI_BASE_URL
-wrangler secret put AZURE_OPENAI_DEPLOYMENT_NAME
-wrangler secret put AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT_NAME
-wrangler secret put AZURE_TENANT_ID
-wrangler secret put AZURE_CLIENT_ID
-wrangler secret put AZURE_CLIENT_SECRET
-wrangler secret put AZURE_OPENAI_API_KEY
-wrangler secret put GEMINI_API_KEY
-
-# Deploy with custom domain from .dev.vars
-bun run deploy
-
-# Deploy without custom domain
-bun run deploy:plain
-```
-
-## Azure SWA Deployment (Recommended)
-
-### 1. One-time Azure setup
+Create a Static Web App. Export the server variables, `SWA_APP_NAME`, and
+`SWA_RESOURCE_GROUP`, then configure it:
 
 ```bash
 az login
-gh auth login
-bun run setup:swa
+npm run setup:swa -- --apply
 ```
 
-`setup:swa` does the following:
-
-- Ensures resource group exists (default: `gpt-realtime-poc`)
-- Ensures Static Web App exists (default name: `gpt-realtime-poc`)
-- Syncs Azure OpenAI settings into SWA app settings (default + existing preview environments)
-- Syncs SWA deployment token to GitHub secret `AZURE_STATIC_WEB_APPS_API_TOKEN`
-
-Auth mode behavior in `setup:swa`:
-
-- If `AZURE_OPENAI_API_KEY` is present, SWA is configured for API-key auth and AAD app settings are removed.
-- Otherwise, SWA is configured for AAD auth (`AZURE_TENANT_ID` + `AZURE_CLIENT_ID` + `AZURE_CLIENT_SECRET`).
-
-Optional overrides:
-
-- `SWA_RESOURCE_GROUP` (default `gpt-realtime-poc`)
-- `SWA_APP_NAME` (default `gpt-realtime-poc`)
-- `SWA_LOCATION` (default `eastus2`)
-- `SWA_SKU` (default `Free`)
-
-### 2. Deploy via GitHub Actions
-
-This repo includes a stable workflow at `.github/workflows/azure-static-web-apps.yml`.
-
-- Push to `main` to deploy automatically
-- Or run the workflow manually with `workflow_dispatch`
-- Required GitHub secret: `AZURE_STATIC_WEB_APPS_API_TOKEN` (deployment token)
-- Azure OpenAI credentials are runtime SWA app settings, managed by `bun run setup:swa` (not GitHub Action env vars)
-
-### 3. Optional direct CLI deploy
+Export `SWA_CLI_DEPLOYMENT_TOKEN` with the app's deployment token:
 
 ```bash
-bun run deploy:swa
+npm run deploy:swa                  # Preview
+npm run deploy:swa -- --production  # Requires main
 ```
 
-This deploys with SWA deployment token auth and defaults to:
+Setup targets production unless `SWA_ENVIRONMENT_NAME` names an existing preview.
+These commands read shell variables, not `.dev.vars`.
 
-- SWA app name: `gpt-realtime-poc`
-- resource group: `gpt-realtime-poc`
-- environment: `production`
+For local SWA development, export the server variables and run `npm run dev:swa`.
+Requires Azure Functions tooling; serves http://localhost:4280.
 
-Optional overrides:
+## Checks
 
-- `SWA_APP_NAME`
-- `SWA_RESOURCE_GROUP`
-- `SWA_ENV`
-- `SWA_CLI_DEPLOYMENT_TOKEN`
-
-## API Overview
-
-The backend exposes two endpoints:
-
-### `POST /connect` (Azure OpenAI / GPT)
-
-- Client posts JSON: `sdp`, `voice`, `instructions`
-- Client may also post `multipart/form-data` with fields: `sdp`, `voice`, `instructions`
-- Backend requests ephemeral token from Azure OpenAI (`/v1/realtime/client_secrets`)
-- Backend exchanges SDP at `/v1/realtime/calls`
-
-### `POST /gemini/token` (Google Gemini)
-
-- Returns a short-lived ephemeral token for the Gemini Live API
-- Client connects directly to Gemini's WebSocket using the token
-
-## Architecture
-
-```text
-GPT path:    Browser <-> Worker/SWA <-> Azure OpenAI /realtime (WebRTC)
-Gemini path: Browser <-> Gemini WebSocket (direct, token from Worker/SWA)
+```bash
+npm test
+npm run test:deployment
+npm run typecheck
+npm run deploy:dry-run
+npm run deploy:preview:dry-run
 ```
 
-## Code Map
+## Structure
 
-- UI: `public/index.html`
-- Cloudflare Worker backend: `src/worker.ts`
-- SWA API backend: `api/connect/index.js`
-- SWA runtime routing: `public/staticwebapp.config.json`
+The server creates sessions through APIM. The browser sends audio directly to the
+service over WebRTC.
 
-## Documentation links
+| Path | Purpose |
+| --- | --- |
+| `public/` | UI, audio sessions, transcripts, and local history. |
+| `api/shared/` | Session requests and prompts. |
+| `src/worker.ts` | Cloudflare adapter. |
+| `api/connect/` | Azure Functions adapter. |
+| `test/` | Client and backend tests. |
 
-- https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/realtime-audio-webrtc
-- https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/realtime-audio
-- https://platform.openai.com/docs/guides/realtime-webrtc
-- https://ai.google.dev/gemini-api/docs/live
+[OpenAI Live guide](https://developers.openai.com/api/docs/guides/live).
+Tutor interaction ideas inspired by
+[HeyGen's GPT Live demos](https://github.com/heygen-com/liveavatar-gpt-live-demos).
