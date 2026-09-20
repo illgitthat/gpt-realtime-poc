@@ -3,10 +3,6 @@
     {
       "route": "/connect",
       "rewrite": "/api/connect"
-    },
-    {
-      "route": "/gemini/token",
-      "rewrite": "/api/gemini/token"
     }
   ],
   "navigationFallback": {
@@ -14,13 +10,12 @@
     "exclude": [
       "/api/*",
       "/connect",
-      "/gemini/*",
       "/*.css",
       "/*.js",
       "/favicon.ico"
     ]
   },
   "platform": {
-    "apiRuntime": "node:20"
+    "apiRuntime": "node:22"
   }
 }

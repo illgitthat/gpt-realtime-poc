@@ -4,6 +4,8 @@
     "gpt-realtime-poc": {
       "appLocation": "public",
       "apiLocation": "api",
+      "apiLanguage": "node",
+      "apiVersion": "22",
       "outputLocation": "."
     }
   }

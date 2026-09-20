@@ -1,203 +1,39 @@
-import realtimeCore from "../api/shared/realtime-core.js";
+import liveCore from "../api/shared/live-core.js";
 
 interface Env {
-  AZURE_OPENAI_BASE_URL: string;
+  AZURE_OPENAI_BASE_URL?: string;
   AZURE_OPENAI_API_KEY?: string;
   AZURE_OPENAI_DEPLOYMENT_NAME?: string;
-  AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT_NAME?: string;
-  AZURE_TENANT_ID?: string;
-  AZURE_CLIENT_ID?: string;
-  AZURE_CLIENT_SECRET?: string;
-  GEMINI_API_KEY?: string;
+  AZURE_OPENAI_REASONING_DEPLOYMENT_NAME?: string;
   ASSETS: Fetcher;
 }
 
-type TokenCache = {
-  token: string;
-  expiresAt: number;
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
 };
-
-interface SessionOptions {
-  model?: string;
-  transcriptionModel?: string;
-  voice?: string;
-  instructions?: string;
-}
-
-interface ConnectRequestPayload {
-  sdp: string;
-  voice?: string;
-  instructions?: string;
-}
-
-const { exchangeSdpOffer, toErrorMessage } = realtimeCore;
-
-let cachedToken: TokenCache | null = null;
-
-class BadRequestError extends Error {}
-
-async function parseConnectRequest(request: Request): Promise<ConnectRequestPayload> {
-  const contentType = request.headers.get("Content-Type") || "";
-
-  if (contentType.includes("application/json")) {
-    let body: Partial<ConnectRequestPayload>;
-    try {
-      body = await request.json<Partial<ConnectRequestPayload>>();
-    } catch (_error) {
-      throw new BadRequestError("Invalid JSON payload.");
-    }
-
-    if (!body?.sdp || typeof body.sdp !== "string") {
-      throw new BadRequestError("Missing 'sdp' field");
-    }
-
-    return {
-      sdp: body.sdp,
-      voice: typeof body.voice === "string" ? body.voice : undefined,
-      instructions: typeof body.instructions === "string" ? body.instructions : undefined,
-    };
-  }
-
-  if (contentType.includes("multipart/form-data")) {
-    let formData: FormData;
-    try {
-      formData = await request.formData();
-    } catch (_error) {
-      throw new BadRequestError("Invalid multipart/form-data payload.");
-    }
-
-    const sdp = formData.get("sdp");
-    if (!sdp || typeof sdp !== "string") {
-      throw new BadRequestError("Missing 'sdp' field");
-    }
-
-    const voice = formData.get("voice");
-    const instructions = formData.get("instructions");
-
-    return {
-      sdp,
-      voice: typeof voice === "string" ? voice : undefined,
-      instructions: typeof instructions === "string" ? instructions : undefined,
-    };
-  }
-
-  throw new BadRequestError("Expected application/json or multipart/form-data");
-}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    const pathname = url.pathname;
-
-    const corsHeaders = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    };
-
-    if (request.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders });
-    }
-
-    if (pathname === "/gemini/token" && request.method === "POST") {
-      if (!env.GEMINI_API_KEY) {
-        return new Response(
-          JSON.stringify({ error: "Gemini API key not configured" }),
-          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
-        );
-      }
-
-      try {
-        const expireTime = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-        const newSessionExpireTime = new Date(Date.now() + 2 * 60 * 1000).toISOString();
-
-        const tokenResp = await fetch(
-          `https://generativelanguage.googleapis.com/v1alpha/auth_tokens?key=${env.GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              uses: 1,
-              expireTime,
-              newSessionExpireTime,
-            }),
-          },
-        );
-
-        if (!tokenResp.ok) {
-          const text = await tokenResp.text();
-          return new Response(
-            JSON.stringify({ error: `Token creation failed: ${tokenResp.status} - ${text}` }),
-            { status: 502, headers: { "Content-Type": "application/json", ...corsHeaders } },
-          );
-        }
-
-        const data = await tokenResp.json<{ name?: string }>();
-        return new Response(
-          JSON.stringify({ token: data.name }),
-          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
-        );
-      } catch (error) {
-        return new Response(
-          JSON.stringify({ error: toErrorMessage(error) }),
-          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
-        );
-      }
-    }
-
-    if (pathname === "/connect" && request.method === "POST") {
-      try {
-        let payload: ConnectRequestPayload;
-        try {
-          payload = await parseConnectRequest(request);
-        } catch (error) {
-          return new Response(
-            JSON.stringify({ error: toErrorMessage(error) }),
-            { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } },
-          );
-        }
-
-        const sessionOptions: SessionOptions = {
-          model: env.AZURE_OPENAI_DEPLOYMENT_NAME,
-          transcriptionModel: env.AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT_NAME,
-          voice: payload.voice || "alloy",
-          instructions: payload.instructions || "",
-        };
-
-        const result = await exchangeSdpOffer({
-          fetchImpl: fetch,
-          baseUrl: env.AZURE_OPENAI_BASE_URL,
-          credentials: {
-            apiKey: env.AZURE_OPENAI_API_KEY,
-            tenantId: env.AZURE_TENANT_ID,
-            clientId: env.AZURE_CLIENT_ID,
-            clientSecret: env.AZURE_CLIENT_SECRET,
-          },
-          sessionOptions,
-          sdpOffer: payload.sdp,
-          cachedToken,
+    if (url.pathname === "/connect") {
+      const headers = { ...corsHeaders, "Cache-Control": "no-store" };
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
+      if (request.method !== "POST") {
+        return Response.json({ error: "Use POST to start a conversation." }, {
+          status: 405, headers: { ...headers, Allow: "POST, OPTIONS" },
         });
-
-        cachedToken = result.cachedToken;
-
-        return new Response(result.sdpAnswer, {
-          status: 201,
-          headers: { "Content-Type": "application/sdp", ...corsHeaders },
-        });
+      }
+      try {
+        const payload = await liveCore.readJsonRequest(request);
+        const connection = await liveCore.createLiveSession({ payload, env, signal: request.signal });
+        return Response.json(connection, { status: 201, headers });
       } catch (error) {
-        return new Response(
-          JSON.stringify({ error: toErrorMessage(error) }),
-          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
-        );
+        const result = liveCore.errorResponse(error);
+        return Response.json(result.body, { status: result.status, headers });
       }
     }
-
-    if (pathname === "/") {
-      const indexUrl = new URL(request.url);
-      indexUrl.pathname = "/index.html";
-      return env.ASSETS.fetch(new Request(indexUrl, request));
-    }
-
     return env.ASSETS.fetch(request);
   },
 };

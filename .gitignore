@@ -3,7 +3,10 @@ node_modules/
 
 # Wrangler
 .wrangler/
+/worker-configuration.d.ts
 .dev.vars
+.dev.vars.*
+wrangler.tmp.json
 
 # Logs
 *.log
@@ -16,5 +19,9 @@ dist/
 
 # Environment files
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+api/local.settings.json
+
+# Local audio test recordings
+artifacts/
