@@ -20,6 +20,7 @@ async function fixture(t, saved = null, {
     value = '';
     textContent = '';
     hidden = false;
+    top = 100;
     bottom = 400;
     append(child) { child.remove(); child.parent = this; this.children.push(child); }
     insertBefore(child, next) {
@@ -36,11 +37,17 @@ async function fixture(t, saved = null, {
     get lastElementChild() { return this.children.at(-1) || null; }
     setAttribute(key, value) { this.attributes.set(key, value); }
     contains(target) { return target === this || this.children.some(child => child.contains(target)); }
-    getBoundingClientRect() { return { bottom: this.bottom }; }
+    getBoundingClientRect() { return { top: this.top, bottom: this.bottom }; }
     querySelector() { return this.children[0]; }
     scrollIntoView(options) {
       scrolls.push({ element: this, options });
-      this.bottom = 844 - controls.offsetHeight - 20;
+      if (options.block === 'start') {
+        const height = this.bottom - this.top;
+        this.top = parseFloat(this.style.scrollMarginTop) || 0;
+        this.bottom = this.top + height;
+      } else {
+        this.bottom = 844 - controls.offsetHeight - 20;
+      }
     }
     click() {
       if (this.disabled) return;
@@ -58,6 +65,11 @@ async function fixture(t, saved = null, {
   };
   controls = new Element();
   controls.offsetHeight = 180;
+  controls.top = 664;
+  controls.bottom = 844;
+  const header = new Element();
+  header.top = 0;
+  header.bottom = header.offsetHeight = 60;
   const modes = ['general', 'tutor', 'interview'].map(mode => {
     const button = new Element();
     button.dataset.mode = mode;
@@ -66,7 +78,7 @@ async function fixture(t, saved = null, {
   const document = Object.assign(new EventTarget(), {
     body: new Element(), visibilityState: 'visible',
     getElementById: element, createElement: () => new Element(),
-    querySelector: () => controls, querySelectorAll: () => modes,
+    querySelector: selector => selector === '.header' ? header : controls, querySelectorAll: () => modes,
   });
   let nextFrame = 0;
   const frames = new Map();
@@ -209,6 +221,32 @@ test('the current interview question survives answer updates and is saved with r
   f.element('start').click();
   assert.equal(f.element('focus-panel').hidden, true);
   assert.deepEqual(f.starts.at(-1).history, []);
+});
+
+test('new focus content and transcript collapse reveal the start below the sticky header', async t => {
+  const f = await fixture(t);
+  f.modes[2].click();
+  f.element('start').click();
+  f.live.onTranscript({ type: 'session.input_transcript.delta', delta: 'A long answer.', start_ms: 0, end_ms: 500 });
+  f.frame();
+  const panel = f.element('focus-panel');
+  panel.top = -200;
+  panel.bottom = 800;
+  f.live.onQuestion('What was the outcome?');
+  f.frame();
+  assert.ok(panel.getBoundingClientRect().top >= 60);
+  const count = f.scrolls.length;
+  f.live.onTranscript({ type: 'session.input_transcript.delta', delta: 'We shipped.', start_ms: 2000, end_ms: 2500 });
+  f.frame();
+  assert.equal(f.scrolls.length, count);
+  f.element('transcript-panel').open = true;
+  f.element('transcript-panel').dispatchEvent(new Event('toggle'));
+  f.frame();
+  panel.top = -100;
+  f.element('transcript-panel').open = false;
+  f.element('transcript-panel').dispatchEvent(new Event('toggle'));
+  f.frame();
+  assert.ok(panel.getBoundingClientRect().top >= 60);
 });
 
 test('a saved interview question is readable without a call and does not replace General chat', async t => {

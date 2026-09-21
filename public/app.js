@@ -19,6 +19,8 @@ let conversation = new Conversation();
 let cards = [];
 let interviewQuestion = '';
 let focusVisible = false;
+let focusContent = '';
+let focusScrollFrame = null;
 let hasStarted = false;
 let resetting = false;
 let storageFailed = false;
@@ -121,10 +123,34 @@ function setFocusText(id, text) {
   if ($(id).textContent !== text) $(id).textContent = text;
 }
 
+function revealFocus() {
+  if (focusScrollFrame !== null) return;
+  // A collapsed transcript can leave its old scroll offset above the new card.
+  focusScrollFrame = window.requestAnimationFrame(() => {
+    focusScrollFrame = null;
+    if (!focusVisible || $('transcript-panel').open || $('settings-dialog').open) return;
+    const header = document.querySelector('.header');
+    const viewportTop = window.visualViewport?.offsetTop || 0;
+    const viewportBottom = viewportTop + (window.visualViewport?.height || window.innerHeight);
+    const top = Math.max(viewportTop, header.offsetHeight, header.getBoundingClientRect().bottom) + 8;
+    const controlsTop = document.querySelector('.controls').getBoundingClientRect().top;
+    const bottom = Math.min(viewportBottom, controlsTop > top ? controlsTop : viewportBottom) - 8;
+    const target = $('focus-panel');
+    const bounds = target.getBoundingClientRect();
+    if (bounds.top < top || bounds.bottom > bottom) {
+      target.style.scrollMarginTop = `${top}px`;
+      target.scrollIntoView({ block: 'start', behavior: 'instant' });
+    }
+  });
+}
+
 function renderFocus() {
   const card = mode === 'tutor' && config?.mode === mode ? cards.at(-1) : null;
   const question = mode === 'interview' && config?.mode === mode ? interviewQuestion : '';
   const wasVisible = focusVisible;
+  const content = card ? JSON.stringify([card.context, card.language, card.term, card.reading, card.meaning]) : question;
+  const changed = content !== focusContent;
+  focusContent = content;
   focusVisible = Boolean(card || question);
   document.body.dataset.focus = String(focusVisible);
   document.body.dataset.focusKind = focusVisible ? mode : '';
@@ -151,6 +177,14 @@ function renderFocus() {
   $('repeat-phrase').hidden = !card;
   $('repeat-phrase').disabled = !active;
   $('repeat-phrase').title = active ? '' : 'Start or continue the tutor to hear this phrase.';
+  if (focusVisible && (!wasVisible || changed) && !$('transcript-panel').open) {
+    follower.cancel();
+    revealFocus();
+  }
+  if (!focusVisible && focusScrollFrame !== null) {
+    window.cancelAnimationFrame(focusScrollFrame);
+    focusScrollFrame = null;
+  }
 }
 
 function followTranscript() {
@@ -466,7 +500,11 @@ $('repeat-phrase').addEventListener('click', () => {
 });
 $('transcript-panel').addEventListener('toggle', () => {
   followTranscript();
-  if (!$('transcript-panel').open) $('latest').hidden = true;
+  if (!$('transcript-panel').open) {
+    follower.cancel();
+    $('latest').hidden = true;
+    if (focusVisible) revealFocus();
+  }
 });
 $('resume-audio').addEventListener('click', () => { void live.resumePlayback(); });
 $('latest').addEventListener('click', () => follower.jump());
@@ -527,6 +565,8 @@ window.addEventListener('pagehide', () => {
   clearTimeout(saveTimer);
   saveTimer = null;
   follower.cancel();
+  if (focusScrollFrame !== null) window.cancelAnimationFrame(focusScrollFrame);
+  focusScrollFrame = null;
   void live.stop({ immediate: true });
 });
 window.addEventListener('pageshow', () => { observeHistory(); renderControls(); });
