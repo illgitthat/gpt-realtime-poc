@@ -356,6 +356,7 @@ export class LiveSession {
     const { card, error } = validateLearningCard(value);
     if (error) { this.onError(error); return false; }
     try {
+      void this.resumePlayback(c);
       this.send(c, {
         type: 'session.instructions.append', delegation_id: null,
         content: `Repeat only this practice phrase in ${JSON.stringify(card.language)}, once and slowly: ${JSON.stringify(card.term)}. Do not translate, add another phrase, or advance the exercise. Then listen.`,

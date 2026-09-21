@@ -272,8 +272,12 @@ test('tutor opening runs once after ready, never on explicit history recovery', 
 test('Hear again repeats the selected phrase on the existing tutor session only', async t => {
   const f = fixture(t);
   const { channel } = await f.ready({ mode: 'tutor' });
+  f.audio.srcObject = new Stream([new Track()]);
+  f.audio.paused = true;
   const phrase = { language: 'Chinese', term: '请给我一杯茶。', reading: 'Qǐng gěi wǒ yì bēi chá.', meaning: 'Please give me a cup of tea.' };
   assert.equal(f.live.repeatPhrase(phrase), true);
+  await flush();
+  assert.equal(f.audio.paused, false);
   assert.equal(channel.sent.at(-1).type, 'session.instructions.append');
   assert.ok(channel.sent.at(-1).content.includes(phrase.term));
   assert.ok(channel.sent.at(-1).content.includes(phrase.language));
