@@ -40,7 +40,7 @@ test("Live negotiation uses APIM once, keeps credentials server-side, and restor
   assert.equal(JSON.stringify(result).includes("test-gateway-key"), false);
 });
 
-test("deployment names are configurable independently and tutor exposes only its display tool", async t => {
+test("deployment names are configurable and display tools are restricted to their modes", async t => {
   let session;
   t.mock.method(globalThis, "fetch", async (_url, init) => {
     session = JSON.parse(init.body).session;
@@ -56,6 +56,10 @@ test("deployment names are configurable independently and tutor exposes only its
   assert.deepEqual(session.delegation.responses.tools.map(tool => tool.name), ["show_learning_card"]);
   assert.equal(session.delegation.responses.parallel_tool_calls, false);
   assert.match(session.instructions, /Chinese/);
+  await createLiveSession({ env, payload: { sdp, mode: "interview" } });
+  assert.deepEqual(session.delegation.responses.tools.map(tool => tool.name), ["show_interview_question"]);
+  await createLiveSession({ env, payload: { sdp, mode: "general" } });
+  assert.equal(session.delegation.responses.tools, undefined);
 });
 
 test("invalid requests fail before any billable request", async t => {

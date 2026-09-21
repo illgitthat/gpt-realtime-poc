@@ -177,3 +177,15 @@ test('renderer failures produce explicit failure output, never a false success',
   const result = runDisplayTool(call(card), 'tutor', () => { throw new Error('Display unavailable'); });
   assert.deepEqual(result, { shown: false, error: 'Could not display card: Display unavailable' });
 });
+
+test('interview questions render only valid question data in interview mode', () => {
+  const displayed = [];
+  const item = question => ({ name: 'show_interview_question', arguments: JSON.stringify({ question }) });
+  const render = question => displayed.push(question);
+  assert.deepEqual(runDisplayTool(item('  What did you learn?  '), 'interview', undefined, render), { shown: true });
+  assert.deepEqual(displayed, ['What did you learn?']);
+  for (const [question, mode] of [[' ', 'interview'], ['x'.repeat(601), 'interview'], [42, 'interview'], ['Question?', 'general'], ['Question?', 'tutor']]) {
+    assert.equal(runDisplayTool(item(question), mode, undefined, render).shown, false);
+  }
+  assert.equal(displayed.length, 1);
+});

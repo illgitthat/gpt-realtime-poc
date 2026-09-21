@@ -127,6 +127,7 @@ async function fixture(t, saved = null, {
     return Promise.resolve();
   });
   t.after(async () => {
+    await flush();
     window.dispatchEvent(new Event('pagehide'));
     await flush();
     for (const [key, descriptor] of globals) {
@@ -143,9 +144,10 @@ async function fixture(t, saved = null, {
   };
 }
 
-test('new transcript turns follow inline cards instead of staying pinned to an old card', async t => {
+test('tutor focus stays visible while the optional transcript can follow newer turns', async t => {
   const f = await fixture(t);
   const { element, scrolls, frame } = f;
+  f.modes[1].click();
   element('start').click();
   const { live } = f;
   live.onTranscript({ type: 'session.output_transcript.delta', delta: 'Try this.', start_ms: 0, end_ms: 100 });
@@ -156,13 +158,75 @@ test('new transcript turns follow inline cards instead of staying pinned to an o
   assert.equal(card.className, 'learning-card');
   assert.equal(card.children[1].textContent, '你好');
   assert.equal(card.children[1].lang, 'zh');
-  assert.equal(scrolls.at(-1).element, card);
+  assert.equal(element('focus-panel').hidden, false);
+  assert.equal(element('focus-title').textContent, '你好');
+  assert.equal(element('transcript-panel').open, false);
+  const scrollCount = scrolls.length;
   live.onTranscript({ type: 'session.input_transcript.delta', delta: '你好', start_ms: 300, end_ms: 500 });
   frame();
   const reply = element('transcript').lastElementChild;
   assert.equal(reply.className, 'message message-user');
+  assert.equal(scrolls.length, scrollCount);
+  assert.equal(element('focus-title').textContent, '你好');
+  element('transcript-panel').open = true;
+  element('transcript-panel').dispatchEvent(new Event('toggle'));
+  frame();
   assert.equal(scrolls.at(-1).element, reply);
   assert.ok(element('transcript').children.indexOf(card) < element('transcript').children.indexOf(reply));
+  const repeated = [];
+  t.mock.method(LiveSession.prototype, 'repeatPhrase', value => repeated.push(value.term));
+  element('repeat-phrase').click();
+  assert.deepEqual(repeated, ['你好']);
+  live.onCard({ language: 'Chinese', term: '谢谢', reading: 'xièxie', meaning: 'Thank you', context: 'At the café' });
+  assert.equal(element('focus-title').textContent, '谢谢');
+  assert.equal(element('focus-context').textContent, 'At the café');
+  assert.equal(element('transcript-panel').open, true);
+  element('repeat-phrase').click();
+  assert.deepEqual(repeated, ['你好', '谢谢']);
+  await live.stop();
+  assert.equal(element('repeat-phrase').disabled, true);
+  element('start').click();
+  assert.equal(element('focus-panel').hidden, true);
+  assert.equal(element('focus-title').textContent, '');
+});
+
+test('the current interview question survives answer updates and is saved with recent history', async t => {
+  const f = await fixture(t);
+  f.modes[2].click();
+  f.element('start').click();
+  f.live.onQuestion('Tell me about a disagreement you resolved.');
+  assert.equal(f.element('focus-title').textContent, 'Tell me about a disagreement you resolved.');
+  assert.equal(f.element('transcript-panel').open, false);
+  assert.equal(f.element('repeat-phrase').hidden, true);
+  f.live.onTranscript({ type: 'session.input_transcript.delta', delta: 'We disagreed about a release.', start_ms: 0, end_ms: 800 });
+  assert.equal(f.element('focus-title').textContent, 'Tell me about a disagreement you resolved.');
+  f.live.onQuestion('How did you reach an agreement?');
+  f.element('end').click();
+  await flush();
+  assert.equal(f.element('focus-label').textContent, 'Previous question');
+  const saved = JSON.parse(f.stored());
+  assert.equal(saved.interviewQuestion, 'How did you reach an agreement?');
+  f.element('start').click();
+  assert.equal(f.element('focus-panel').hidden, true);
+  assert.deepEqual(f.starts.at(-1).history, []);
+});
+
+test('a saved interview question is readable without a call and does not replace General chat', async t => {
+  const question = 'What did you learn from that decision?';
+  const f = await fixture(t, JSON.stringify({
+    config: { mode: 'interview', settings: { role: 'Engineering lead', interviewStyle: 'simulation' }, instructions: '' },
+    history: [{ role: 'assistant', text: question }],
+    interviewQuestion: question, cards: [], hasStarted: true,
+  }));
+  assert.equal(f.element('focus-title').textContent, question);
+  assert.equal(f.element('focus-label').textContent, 'Previous question');
+  assert.equal(f.element('focus-context').textContent, 'Interview simulation');
+  assert.equal(f.starts.length, 0);
+  f.modes[0].click();
+  assert.equal(f.element('focus-panel').hidden, true);
+  assert.equal(f.element('transcript-panel').open, true);
+  assert.equal(f.element('transcript-summary').hidden, true);
+  assert.equal(f.element('transcript').children.length, 1);
 });
 
 test('start feedback remains busy until ready and cancellation returns editable settings', async t => {

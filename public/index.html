@@ -40,8 +40,24 @@
               <h1>Start a conversation</h1>
               <p id="welcome-description">Talk about anything.</p>
             </div>
-            <div id="transcript" role="log" aria-label="Live captions" aria-live="off"></div>
-            <button id="latest" class="quiet latest" type="button" aria-label="Jump to latest content" hidden>↓ Latest</button>
+            <section id="focus-panel" class="focus-panel" aria-label="Current activity" hidden>
+              <p id="focus-context" class="focus-context"></p>
+              <div class="focus-card">
+                <p id="focus-label" class="focus-eyebrow"></p>
+                <h1 id="focus-title" dir="auto"></h1>
+                <p id="focus-reading" dir="auto" hidden></p>
+                <p id="focus-meaning" dir="auto" hidden></p>
+                <button id="repeat-phrase" type="button" hidden>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4Zm12-1a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></svg>
+                  Hear again
+                </button>
+              </div>
+            </section>
+            <details id="transcript-panel" open>
+              <summary id="transcript-summary" hidden>Transcript</summary>
+              <div id="transcript" role="log" aria-label="Live captions" aria-live="off"></div>
+              <button id="latest" class="quiet latest" type="button" aria-label="Jump to latest content" hidden>↓ Latest</button>
+            </details>
           </section>
 
           <footer class="controls">

@@ -3,6 +3,9 @@
 Voice chat, language tutoring, and interview practice with GPT Live.
 Runs on Cloudflare Workers or Azure Static Web Apps.
 
+Tutor phrases and interview questions stay in view while you speak.
+**Hear again** repeats the current phrase; **Transcript** opens the conversation log.
+
 <p>
   <img src="./docs/images/voice-chat.png" width="280" alt="Voice chat with three conversation modes">
   <img src="./docs/images/language-tutor.png" width="280" alt="Mandarin tutor with Chinese characters, pinyin, and an English meaning">

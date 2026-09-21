@@ -113,21 +113,35 @@ export function validateLearningCard(value) {
     card[key] = value[key].trim();
   }
   if (!card.language || !card.term) return { error: 'Language and term must not be empty.' };
+  if (value.context !== undefined) {
+    if (typeof value.context !== 'string' || value.context.length > 80) return { error: 'Invalid practice context.' };
+    card.context = value.context.trim();
+  }
   return { card };
 }
 
-export function runDisplayTool(item, mode, render) {
-  if (item.name !== 'show_learning_card') return { shown: false, error: 'Unknown display tool.' };
-  if (mode !== 'tutor') return { shown: false, error: 'Learning cards are only available in tutor mode.' };
-  if (typeof item.arguments !== 'string' || item.arguments.length > 12000) return { shown: false, error: 'Invalid card arguments.' };
+export function validateInterviewQuestion(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) ||
+      typeof value.question !== 'string' || !value.question.trim() || value.question.length > 600) {
+    return { error: 'Expected an interview question of at most 600 characters.' };
+  }
+  return { question: value.question.trim() };
+}
+
+export function runDisplayTool(item, mode, render, renderQuestion) {
+  const isQuestion = item.name === 'show_interview_question';
+  if (!isQuestion && item.name !== 'show_learning_card') return { shown: false, error: 'Unknown display tool.' };
+  if (mode !== (isQuestion ? 'interview' : 'tutor')) return { shown: false, error: 'This display tool is not available in the current mode.' };
+  if (typeof item.arguments !== 'string' || item.arguments.length > 12000) return { shown: false, error: 'Invalid display arguments.' };
   let args;
-  try { args = JSON.parse(item.arguments); } catch { return { shown: false, error: 'Card arguments are not valid JSON.' }; }
-  const { card, error } = validateLearningCard(args);
+  try { args = JSON.parse(item.arguments); } catch { return { shown: false, error: 'Display arguments are not valid JSON.' }; }
+  const { card, question, error } = isQuestion ? validateInterviewQuestion(args) : validateLearningCard(args);
   if (error) return { shown: false, error };
   try {
-    render(card);
+    if (isQuestion) renderQuestion(question);
+    else render(card);
     return { shown: true };
   } catch (error) {
-    return { shown: false, error: `Could not display card: ${error.message || 'render failed'}` };
+    return { shown: false, error: `Could not display ${isQuestion ? 'question' : 'card'}: ${error.message || 'render failed'}` };
   }
 }

@@ -1,4 +1,4 @@
-import { Conversation, recentHistory, languageTag, validateLearningCard } from './conversation.js';
+import { Conversation, recentHistory, languageTag, validateLearningCard, validateInterviewQuestion } from './conversation.js';
 import { ConversationStore, storageKey } from './conversation-store.js';
 import { TranscriptFollower } from './transcript-scroll.js';
 import { LiveSession } from './live-session.js';
@@ -17,6 +17,8 @@ let mode = 'general';
 let config = null;
 let conversation = new Conversation();
 let cards = [];
+let interviewQuestion = '';
+let focusVisible = false;
 let hasStarted = false;
 let resetting = false;
 let storageFailed = false;
@@ -51,7 +53,7 @@ const live = new LiveSession({
       scheduleSave();
     }
     renderControls();
-    if (state === 'active') follower.changed(true);
+    if (state === 'active') followTranscript();
     else if (['ended', 'error', 'closing'].includes(state)) follower.changed(false);
   },
   onTranscript(event) {
@@ -63,6 +65,11 @@ const live = new LiveSession({
     cards.push({ ...card, afterId: conversation.messages.at(-1)?.id ?? null });
     cards = cards.slice(-6);
     renderTranscript();
+    scheduleSave();
+  },
+  onQuestion(question) {
+    interviewQuestion = question;
+    renderControls();
     scheduleSave();
   },
   onError: showNotice,
@@ -110,13 +117,53 @@ function canContinue() {
     JSON.stringify(readConfig()) === JSON.stringify(config));
 }
 
+function setFocusText(id, text) {
+  if ($(id).textContent !== text) $(id).textContent = text;
+}
+
+function renderFocus() {
+  const card = mode === 'tutor' && config?.mode === mode ? cards.at(-1) : null;
+  const question = mode === 'interview' && config?.mode === mode ? interviewQuestion : '';
+  const wasVisible = focusVisible;
+  focusVisible = Boolean(card || question);
+  document.body.dataset.focus = String(focusVisible);
+  document.body.dataset.focusKind = focusVisible ? mode : '';
+  $('focus-panel').hidden = !focusVisible;
+  $('transcript-summary').hidden = !focusVisible;
+  if (focusVisible && !wasVisible) {
+    $('transcript-panel').open = !follower.following;
+    follower.changed(false);
+  } else if (!focusVisible) {
+    $('transcript-panel').open = true;
+  }
+  const active = live.state === 'active';
+  const practice = active && !live.muted;
+  setFocusText('focus-label', card ? (practice ? 'Say this' : 'Practice phrase') : active ? 'Current question' : 'Previous question');
+  setFocusText('focus-context', card ? (card.context || card.language)
+    : question ? (config.settings.interviewStyle === 'simulation' ? 'Interview simulation' : 'Interview practice') : '');
+  setFocusText('focus-title', card?.term || question);
+  $('focus-title').lang = card ? languageTag(card.language) : '';
+  setFocusText('focus-reading', card?.reading || '');
+  setFocusText('focus-meaning', card?.meaning || '');
+  $('focus-reading').hidden = !card?.reading;
+  $('focus-meaning').hidden = !card?.meaning;
+  $('focus-meaning').lang = languageTag(config?.settings?.supportLanguage || '');
+  $('repeat-phrase').hidden = !card;
+  $('repeat-phrase').disabled = !active;
+  $('repeat-phrase').title = active ? '' : 'Start or continue the tutor to hear this phrase.';
+}
+
+function followTranscript() {
+  follower.changed(Boolean(live.connection && !live.connection.closing && $('transcript-panel').open));
+}
+
 function renderControls() {
   const state = live.state;
   const busy = Boolean(live.connection);
   const ready = busy && ['active', 'disconnected'].includes(state);
   const settling = state === 'permission' || state === 'connecting';
   const settingsLocked = busy && state !== 'closing';
-  const hasContent = conversation.messages.length > 0 || cards.length > 0;
+  const hasContent = conversation.messages.length > 0 || cards.length > 0 || Boolean(interviewQuestion);
   const resumable = canContinue();
   const reconnect = state === 'error' && resumable;
   const continuation = !busy && resumable && !reconnect;
@@ -143,7 +190,8 @@ function renderControls() {
   };
   $('welcome-description').textContent = descriptions[mode];
   $('welcome-description').hidden = busy;
-  $('conversation-heading').hidden = busy || !hasContent;
+  renderFocus();
+  $('conversation-heading').hidden = busy || !hasContent || focusVisible;
   $('start').hidden = busy && !settling && state !== 'closing';
   $('start').disabled = resetting || busy || navigator.onLine === false;
   const startLabel = settling || state === 'closing' ? statuses[state]
@@ -234,7 +282,7 @@ function renderTranscript() {
   });
   for (const id of messageNodes.keys()) if (!ids.has(id)) messageNodes.delete(id);
   renderControls();
-  follower.changed(Boolean(live.connection && !live.connection.closing));
+  followTranscript();
 }
 
 function savedSnapshot() {
@@ -242,6 +290,7 @@ function savedSnapshot() {
   const offset = conversation.messages.length - history.length;
   return {
     config, history, hasStarted, savedAt: Date.now(),
+    ...(interviewQuestion ? { interviewQuestion } : {}),
     cards: cards.map(({ afterId, ...card }) => ({
       ...card, after: Math.max(-1, conversation.messages.findIndex(message => message.id === afterId) - offset),
     })),
@@ -312,6 +361,11 @@ function restore() {
         ? conversation.messages[value.after]?.id ?? null : conversation.messages.at(-1)?.id ?? null;
       return [{ ...card, afterId }];
     }) : [];
+    if (saved.interviewQuestion !== undefined) {
+      const { question, error } = validateInterviewQuestion({ question: saved.interviewQuestion });
+      if (error) throw new Error('Saved interview question is invalid.');
+      interviewQuestion = question;
+    }
     hasStarted = saved.hasStarted === true;
   } catch (error) {
     config = null;
@@ -330,6 +384,7 @@ function resetConversation() {
   restoredCount = 0;
   conversation = new Conversation();
   cards = [];
+  interviewQuestion = '';
   cardNodes = new WeakMap();
   storageConflict = storageFailed = false;
   live.setMuted(false);
@@ -405,6 +460,14 @@ $('fresh').addEventListener('click', () => { void start(); });
 $('end').addEventListener('click', () => { void live.stop().then(flushSave); });
 $('delete').addEventListener('click', () => { void deleteConversation(); });
 $('mute').addEventListener('click', () => live.setMuted(!live.muted));
+$('repeat-phrase').addEventListener('click', () => {
+  const card = cards.at(-1);
+  if (mode === 'tutor' && config?.mode === mode && card) live.repeatPhrase(card);
+});
+$('transcript-panel').addEventListener('toggle', () => {
+  followTranscript();
+  if (!$('transcript-panel').open) $('latest').hidden = true;
+});
 $('resume-audio').addEventListener('click', () => { void live.resumePlayback(); });
 $('latest').addEventListener('click', () => follower.jump());
 document.addEventListener('pointerdown', event => {
@@ -432,6 +495,7 @@ $('export').addEventListener('click', () => {
     .map(message => `## ${message.role === 'user' ? 'You' : 'Assistant'}\n\n${message.text}`)
     .join('\n\n');
   if (transcript) sections.push(transcript);
+  if (interviewQuestion) sections.push(`## Current interview question\n\n${interviewQuestion}`);
   const learning = cards.map(card => {
     const details = [`- **Language:** ${card.language}`];
     if (card.reading) details.push(`- **Reading:** ${card.reading}`);
@@ -471,7 +535,7 @@ if (typeof ResizeObserver !== 'undefined') {
   const controls = document.querySelector('.controls');
   new ResizeObserver(() => {
     document.documentElement.style.setProperty('--controls-height', `${controls.offsetHeight}px`);
-    follower.changed(Boolean(live.connection));
+    followTranscript();
   }).observe(controls);
 }
 
