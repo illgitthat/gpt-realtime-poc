@@ -278,9 +278,8 @@ test('Hear again repeats the selected phrase on the existing tutor session only'
   assert.equal(f.live.repeatPhrase(phrase), true);
   await flush();
   assert.equal(f.audio.paused, false);
-  assert.equal(channel.sent.at(-1).type, 'session.instructions.append');
-  assert.ok(channel.sent.at(-1).content.includes(phrase.term));
-  assert.ok(channel.sent.at(-1).content.includes(phrase.language));
+  assert.equal(channel.sent.at(-1).type, 'session.commentary.append');
+  assert.equal(channel.sent.at(-1).content, phrase.term);
   assert.equal(f.requests.length, 1);
   await f.live.stop({ immediate: true });
   const sent = channel.sent.length;
