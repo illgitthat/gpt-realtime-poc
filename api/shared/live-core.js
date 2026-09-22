@@ -1,4 +1,4 @@
-const { buildPrompts, learningCardTool } = require("./prompts.js");
+const { buildPrompts, learningCardTool, interviewQuestionTool } = require("./prompts.js");
 
 const MAX_REQUEST_BYTES = 128 * 1024;
 const MODES = new Set(["general", "tutor", "interview"]);
@@ -146,6 +146,7 @@ async function createLiveSession({ payload, env, signal }) {
   const apiKey = env.AZURE_OPENAI_API_KEY?.trim();
   if (!apiKey) throw new ServiceError("The voice service is not configured.", 503, "missing_gateway_key");
   const prompts = buildPrompts(mode, settings, instructions);
+  const tools = mode === "tutor" ? [learningCardTool] : mode === "interview" ? [interviewQuestionTool] : [];
   const session = {
     model: env.AZURE_OPENAI_DEPLOYMENT_NAME?.trim() || "gpt-live-1",
     instructions: prompts.live,
@@ -153,11 +154,11 @@ async function createLiveSession({ payload, env, signal }) {
     delegation: {
       type: "responses",
       responses: {
-        model: env.AZURE_OPENAI_REASONING_DEPLOYMENT_NAME?.trim() || "gpt-5.6-sol",
+        model: env.AZURE_OPENAI_REASONING_DEPLOYMENT_NAME?.trim() || "gpt-5.6-luna",
         instructions: prompts.backend,
         reasoning: { effort: "low" },
         max_output_tokens: 2048,
-        ...(mode === "tutor" ? { tools: [learningCardTool], tool_choice: "auto", parallel_tool_calls: false } : {}),
+        ...(tools.length ? { tools, tool_choice: "auto", parallel_tool_calls: false } : {}),
       },
     },
     ...(input.length ? { input } : {}),

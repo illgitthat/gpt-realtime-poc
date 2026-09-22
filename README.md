@@ -3,6 +3,9 @@
 Voice chat, language tutoring, and interview practice with GPT Live.
 Runs on Cloudflare Workers or Azure Static Web Apps.
 
+Tutor phrases and interview questions stay in view while you speak.
+**Hear again** repeats the current phrase; **Transcript** opens the conversation log.
+
 <p>
   <img src="./docs/images/voice-chat.png" width="280" alt="Voice chat with three conversation modes">
   <img src="./docs/images/language-tutor.png" width="280" alt="Mandarin tutor with Chinese characters, pinyin, and an English meaning">
@@ -34,7 +37,7 @@ Open http://localhost:8787.
 | `AZURE_OPENAI_BASE_URL` | APIM gateway URL ending in `/openai/v1`. |
 | `AZURE_OPENAI_API_KEY` | APIM subscription key. |
 | `AZURE_OPENAI_DEPLOYMENT_NAME` | Defaults to `gpt-live-1`. |
-| `AZURE_OPENAI_REASONING_DEPLOYMENT_NAME` | Defaults to `gpt-5.6-sol`. |
+| `AZURE_OPENAI_REASONING_DEPLOYMENT_NAME` | Defaults to `gpt-5.6-luna`. |
 
 APIM authenticates to Foundry with managed identity.
 

@@ -264,9 +264,46 @@ test('tutor opening runs once after ready, never on explicit history recovery', 
   assert.equal(first.channel.sent.length, 1);
   assert.equal(first.channel.sent[0].type, 'session.instructions.append');
   assert.equal(first.channel.sent[0].delegation_id, null);
+  assert.match(first.channel.sent[0].content, /immersive conversation/);
+  assert.match(first.channel.sent[0].content, /how much correction/);
   await f.live.stop({ immediate: true });
   const second = await f.ready({ mode: 'tutor', settings: { language: 'Chinese' } }, [{ role: 'user', text: '你好' }], { opening: false });
   assert.equal(second.channel.sent.length, 0);
+});
+
+test('Hear again repeats the selected phrase on the existing tutor session only', async t => {
+  const f = fixture(t);
+  const { channel } = await f.ready({ mode: 'tutor' });
+  f.audio.srcObject = new Stream([new Track()]);
+  f.audio.paused = true;
+  const phrase = { language: 'Chinese', term: '请给我一杯茶。', reading: 'Qǐng gěi wǒ yì bēi chá.', meaning: 'Please give me a cup of tea.' };
+  assert.equal(f.live.repeatPhrase(phrase), true);
+  await flush();
+  assert.equal(f.audio.paused, false);
+  assert.equal(channel.sent.at(-1).type, 'session.commentary.append');
+  assert.match(channel.sent.at(-1).content, /^Replay request\./);
+  assert.ok(channel.sent.at(-1).content.includes(JSON.stringify(phrase.term)));
+  assert.equal(f.requests.length, 1);
+  await f.live.stop({ immediate: true });
+  const sent = channel.sent.length;
+  assert.equal(f.live.repeatPhrase(phrase), false);
+  assert.equal(channel.sent.length, sent);
+  assert.equal(f.errors.length, 1);
+});
+
+test('a fresh interview requests its opening question without speech, but a resumed interview does not restart it', async t => {
+  const f = fixture(t);
+  const config = { mode: 'interview', settings: { role: 'Engineering lead', interviewStyle: 'simulation' } };
+  const first = await f.ready(config, [], { opening: true });
+  const input = first.channel.sent.find(event => event.type === 'response.item.create');
+  assert.equal(input.item.role, 'user');
+  assert.equal(input.item.content[0].type, 'input_text');
+  assert.equal(first.channel.sent.filter(event => event.type === 'response.create').length, 1);
+  first.channel.server({ type: 'session.started' });
+  assert.equal(first.channel.sent.filter(event => event.type === 'response.create').length, 1);
+  await f.live.stop({ immediate: true });
+  const resumed = await f.ready(config, [{ role: 'user', text: 'We agreed to reduce the scope.' }], { opening: false });
+  assert.equal(resumed.channel.sent.length, 0);
 });
 
 test('end silences mic immediately, drains session.closed and ignores delayed tool calls', async t => {

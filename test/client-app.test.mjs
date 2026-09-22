@@ -20,6 +20,7 @@ async function fixture(t, saved = null, {
     value = '';
     textContent = '';
     hidden = false;
+    top = 100;
     bottom = 400;
     append(child) { child.remove(); child.parent = this; this.children.push(child); }
     insertBefore(child, next) {
@@ -36,11 +37,17 @@ async function fixture(t, saved = null, {
     get lastElementChild() { return this.children.at(-1) || null; }
     setAttribute(key, value) { this.attributes.set(key, value); }
     contains(target) { return target === this || this.children.some(child => child.contains(target)); }
-    getBoundingClientRect() { return { bottom: this.bottom }; }
+    getBoundingClientRect() { return { top: this.top, bottom: this.bottom }; }
     querySelector() { return this.children[0]; }
     scrollIntoView(options) {
       scrolls.push({ element: this, options });
-      this.bottom = 844 - controls.offsetHeight - 20;
+      if (options.block === 'start') {
+        const height = this.bottom - this.top;
+        this.top = parseFloat(this.style.scrollMarginTop) || 0;
+        this.bottom = this.top + height;
+      } else {
+        this.bottom = 844 - controls.offsetHeight - 20;
+      }
     }
     click() {
       if (this.disabled) return;
@@ -58,6 +65,11 @@ async function fixture(t, saved = null, {
   };
   controls = new Element();
   controls.offsetHeight = 180;
+  controls.top = 664;
+  controls.bottom = 844;
+  const header = new Element();
+  header.top = 0;
+  header.bottom = header.offsetHeight = 60;
   const modes = ['general', 'tutor', 'interview'].map(mode => {
     const button = new Element();
     button.dataset.mode = mode;
@@ -66,7 +78,7 @@ async function fixture(t, saved = null, {
   const document = Object.assign(new EventTarget(), {
     body: new Element(), visibilityState: 'visible',
     getElementById: element, createElement: () => new Element(),
-    querySelector: () => controls, querySelectorAll: () => modes,
+    querySelector: selector => selector === '.header' ? header : controls, querySelectorAll: () => modes,
   });
   let nextFrame = 0;
   const frames = new Map();
@@ -127,6 +139,7 @@ async function fixture(t, saved = null, {
     return Promise.resolve();
   });
   t.after(async () => {
+    await flush();
     window.dispatchEvent(new Event('pagehide'));
     await flush();
     for (const [key, descriptor] of globals) {
@@ -143,9 +156,10 @@ async function fixture(t, saved = null, {
   };
 }
 
-test('new transcript turns follow inline cards instead of staying pinned to an old card', async t => {
+test('tutor focus stays visible while the optional transcript can follow newer turns', async t => {
   const f = await fixture(t);
   const { element, scrolls, frame } = f;
+  f.modes[1].click();
   element('start').click();
   const { live } = f;
   live.onTranscript({ type: 'session.output_transcript.delta', delta: 'Try this.', start_ms: 0, end_ms: 100 });
@@ -156,13 +170,101 @@ test('new transcript turns follow inline cards instead of staying pinned to an o
   assert.equal(card.className, 'learning-card');
   assert.equal(card.children[1].textContent, '你好');
   assert.equal(card.children[1].lang, 'zh');
-  assert.equal(scrolls.at(-1).element, card);
+  assert.equal(element('focus-panel').hidden, false);
+  assert.equal(element('focus-title').textContent, '你好');
+  assert.equal(element('transcript-panel').open, false);
+  const scrollCount = scrolls.length;
   live.onTranscript({ type: 'session.input_transcript.delta', delta: '你好', start_ms: 300, end_ms: 500 });
   frame();
   const reply = element('transcript').lastElementChild;
   assert.equal(reply.className, 'message message-user');
+  assert.equal(scrolls.length, scrollCount);
+  assert.equal(element('focus-title').textContent, '你好');
+  element('transcript-panel').open = true;
+  element('transcript-panel').dispatchEvent(new Event('toggle'));
+  frame();
   assert.equal(scrolls.at(-1).element, reply);
   assert.ok(element('transcript').children.indexOf(card) < element('transcript').children.indexOf(reply));
+  const repeated = [];
+  t.mock.method(LiveSession.prototype, 'repeatPhrase', value => repeated.push(value.term));
+  element('repeat-phrase').click();
+  assert.deepEqual(repeated, ['你好']);
+  live.onCard({ language: 'Chinese', term: '谢谢', reading: 'xièxie', meaning: 'Thank you', context: 'At the café' });
+  assert.equal(element('focus-title').textContent, '谢谢');
+  assert.equal(element('focus-context').textContent, 'At the café');
+  assert.equal(element('transcript-panel').open, true);
+  element('repeat-phrase').click();
+  assert.deepEqual(repeated, ['你好', '谢谢']);
+  await live.stop();
+  assert.equal(element('repeat-phrase').disabled, true);
+  element('start').click();
+  assert.equal(element('focus-panel').hidden, true);
+  assert.equal(element('focus-title').textContent, '');
+});
+
+test('the current interview question survives answer updates and is saved with recent history', async t => {
+  const f = await fixture(t);
+  f.modes[2].click();
+  f.element('start').click();
+  f.live.onQuestion('Tell me about a disagreement you resolved.');
+  assert.equal(f.element('focus-title').textContent, 'Tell me about a disagreement you resolved.');
+  assert.equal(f.element('transcript-panel').open, false);
+  assert.equal(f.element('repeat-phrase').hidden, true);
+  f.live.onTranscript({ type: 'session.input_transcript.delta', delta: 'We disagreed about a release.', start_ms: 0, end_ms: 800 });
+  assert.equal(f.element('focus-title').textContent, 'Tell me about a disagreement you resolved.');
+  f.live.onQuestion('How did you reach an agreement?');
+  f.element('end').click();
+  await flush();
+  assert.equal(f.element('focus-label').textContent, 'Previous question');
+  const saved = JSON.parse(f.stored());
+  assert.equal(saved.interviewQuestion, 'How did you reach an agreement?');
+  f.element('start').click();
+  assert.equal(f.element('focus-panel').hidden, true);
+  assert.deepEqual(f.starts.at(-1).history, []);
+});
+
+test('new focus content and transcript collapse reveal the start below the sticky header', async t => {
+  const f = await fixture(t);
+  f.modes[2].click();
+  f.element('start').click();
+  f.live.onTranscript({ type: 'session.input_transcript.delta', delta: 'A long answer.', start_ms: 0, end_ms: 500 });
+  f.frame();
+  const panel = f.element('focus-panel');
+  panel.top = -200;
+  panel.bottom = 800;
+  f.live.onQuestion('What was the outcome?');
+  f.frame();
+  assert.ok(panel.getBoundingClientRect().top >= 60);
+  const count = f.scrolls.length;
+  f.live.onTranscript({ type: 'session.input_transcript.delta', delta: 'We shipped.', start_ms: 2000, end_ms: 2500 });
+  f.frame();
+  assert.equal(f.scrolls.length, count);
+  f.element('transcript-panel').open = true;
+  f.element('transcript-panel').dispatchEvent(new Event('toggle'));
+  f.frame();
+  panel.top = -100;
+  f.element('transcript-panel').open = false;
+  f.element('transcript-panel').dispatchEvent(new Event('toggle'));
+  f.frame();
+  assert.ok(panel.getBoundingClientRect().top >= 60);
+});
+
+test('a saved interview question is readable without a call and does not replace General chat', async t => {
+  const question = 'What did you learn from that decision?';
+  const f = await fixture(t, JSON.stringify({
+    config: { mode: 'interview', settings: { role: 'Engineering lead', interviewStyle: 'simulation' }, instructions: '' },
+    history: [{ role: 'assistant', text: question }],
+    interviewQuestion: question, cards: [], hasStarted: true,
+  }));
+  assert.equal(f.element('focus-title').textContent, question);
+  assert.equal(f.element('focus-label').textContent, 'Previous question');
+  assert.equal(f.element('focus-context').textContent, 'Interview simulation');
+  assert.equal(f.starts.length, 0);
+  f.modes[0].click();
+  assert.equal(f.element('focus-panel').hidden, true);
+  assert.equal(f.element('transcript-panel').open, true);
+  assert.equal(f.element('transcript-summary').hidden, true);
+  assert.equal(f.element('transcript').children.length, 1);
 });
 
 test('start feedback remains busy until ready and cancellation returns editable settings', async t => {

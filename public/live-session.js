@@ -1,11 +1,11 @@
-import { recentHistory, runDisplayTool } from './conversation.js';
+import { recentHistory, runDisplayTool, validateLearningCard } from './conversation.js';
 
 const noop = () => {};
 
 export class LiveSession {
-  constructor({ audio, onState = noop, onTranscript = noop, onCard, onError = noop,
+  constructor({ audio, onState = noop, onTranscript = noop, onCard, onQuestion, onError = noop,
     onWorking = noop, onPlayback = noop, onMute = noop, onClosed = noop }) {
-    Object.assign(this, { audio, onState, onTranscript, onCard, onError, onWorking, onPlayback, onMute, onClosed });
+    Object.assign(this, { audio, onState, onTranscript, onCard, onQuestion, onError, onWorking, onPlayback, onMute, onClosed });
     this.connection = null;
     this.state = 'idle';
     this.muted = false;
@@ -193,6 +193,7 @@ export class LiveSession {
       if (this.muted) this.setMuted(true);
       if (c.opening && c.config.mode !== 'general') {
         const settings = c.config.settings || {};
+        const startInterview = c.config.mode === 'interview' && Boolean(settings.role?.trim());
         let question;
         if (c.config.mode === 'tutor') {
           const language = settings.language?.trim();
@@ -200,18 +201,28 @@ export class LiveSession {
           const setupLanguage = supportLanguage && (!settings.level || settings.level.toLowerCase() === 'beginner')
             ? supportLanguage : language || supportLanguage;
           question = language
-            ? `The learner already selected ${JSON.stringify(language)} as the target language. Do not ask which language they want. Ask one short question about their practice goal or preferred topic today.`
+            ? `The learner already selected ${JSON.stringify(language)} as the target language. Do not ask which language they want. Ask what kind of practice they want today—immersive conversation, phrases or pronunciation, vocabulary, grammar, or role-play—and how much correction they prefer. Keep it to one concise question.`
             : 'Ask one short question: which language would they like to practice?';
           if (setupLanguage) question += ` Ask this setup question in ${JSON.stringify(setupLanguage)}.`;
         } else {
           question = settings.role?.trim()
-            ? `The selected role is ${JSON.stringify(settings.role.trim())}. Ask the first concise interview question for that role; do not ask which role. Follow the configured practice or simulation style.`
+            ? `The selected role is ${JSON.stringify(settings.role.trim())}. The application is requesting the first question from the backend. Wait for it, then ask that question once. Do not make a second opening request or ask which role. Follow the configured practice or simulation style.`
             : 'Ask one short question: which role would they like to practice interviewing for?';
         }
         this.send(c, {
           type: 'session.instructions.append', delegation_id: null,
           content: `For this opening turn only, before the user has spoken, begin directly with the question without a greeting, praise, thanks, or an acknowledgment such as "Great", "Sure", or "Perfect". ${question} Then pause and listen. Respond naturally to the user on later turns.`,
         });
+        if (startInterview) {
+          // An opening question must not depend on a prior spoken turn triggering delegation.
+          this.send(c, {
+            type: 'response.item.create',
+            item: { type: 'message', role: 'user', content: [
+              { type: 'input_text', text: 'Start my interview with one question for the selected role. Show the question before asking it.' },
+            ] },
+          });
+          this.send(c, { type: 'response.create' });
+        }
       }
       c.resolveStarted(true);
     } catch (error) {
@@ -303,7 +314,7 @@ export class LiveSession {
       if (c.calls.has(item.call_id)) return;
       c.calls.add(item.call_id);
       response.calls.add(item.call_id);
-      const result = runDisplayTool(item, c.config.mode, this.onCard);
+      const result = runDisplayTool(item, c.config.mode, this.onCard, this.onQuestion);
       this.send(c, { type: 'response.item.create', item: {
         type: 'function_call_output', call_id: item.call_id, output: JSON.stringify(result),
       } });
@@ -333,6 +344,28 @@ export class LiveSession {
         if (key !== id && (entry.completed || entry.failed)) c.responses.delete(key);
         if (c.responses.size <= 160) break;
       }
+    }
+  }
+
+  repeatPhrase(value) {
+    const c = this.connection;
+    if (!c || !this.isOpen(c) || !c.ready || c.config.mode !== 'tutor') {
+      this.onError('Start or continue a language tutor conversation to hear the phrase.');
+      return false;
+    }
+    const { card, error } = validateLearningCard(value);
+    if (error) { this.onError(error); return false; }
+    try {
+      void this.resumePlayback(c);
+      this.send(c, {
+        type: 'session.commentary.append',
+        delegation_id: null,
+        content: `Replay request. Say this practice phrase exactly once and say nothing else: ${JSON.stringify(card.term)}`,
+      });
+      return true;
+    } catch (error) {
+      this.onError(`Could not repeat the phrase: ${error.message}`);
+      return false;
     }
   }
 
