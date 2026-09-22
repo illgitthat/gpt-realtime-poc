@@ -268,8 +268,6 @@ test('tutor opening runs once after ready, never on explicit history recovery', 
   assert.equal(first.channel.sent.length, 1);
   assert.equal(first.channel.sent[0].type, 'session.instructions.append');
   assert.equal(first.channel.sent[0].delegation_id, null);
-  assert.match(first.channel.sent[0].content, /immersive conversation/);
-  assert.match(first.channel.sent[0].content, /how much correction/);
   await f.live.stop({ immediate: true });
   const second = await f.ready({ mode: 'tutor', settings: { language: 'Chinese' } }, [{ role: 'user', text: '你好' }], { opening: false });
   assert.equal(second.channel.sent.length, 0);
@@ -512,7 +510,7 @@ test('function outputs are deduplicated and response continuation waits for comp
   channel.server({ type: 'session.delegation.created', delegation: { id: 'd1' } });
   nested({ type: 'response.created', response: { id: 'r1', output: [] } });
   const item = { type: 'function_call', call_id: 'call1', name: 'show_learning_card',
-    arguments: '{"language":"Chinese","term":"你好","reading":"nǐ hǎo","meaning":"Hello"}' };
+    arguments: '{"purpose":"practice","language":"Chinese","term":"你好","reading":"nǐ hǎo","meaning":"Hello"}' };
   nested({ type: 'response.output_item.done', response_id: 'r1', item });
   nested({ type: 'response.output_item.done', response_id: 'r1', item });
   assert.equal(f.cards.length, 1);

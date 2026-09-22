@@ -35,6 +35,21 @@ const conflictMessage = 'Saved history changed in another tab. This tab will not
 const messageNodes = new Map();
 let cardNodes = new WeakMap();
 
+function recentCards(values) {
+  let questionKept = false;
+  let practiceKept = 0;
+  return [...values].reverse().filter(card => {
+    if (card.purpose === 'question') {
+      if (questionKept) return false;
+      questionKept = true;
+      return true;
+    }
+    if (practiceKept >= 6) return false;
+    practiceKept++;
+    return true;
+  }).reverse();
+}
+
 function showNotice(message) {
   $('notice').textContent = message;
   $('notice').hidden = !message;
@@ -64,8 +79,10 @@ const live = new LiveSession({
     scheduleSave();
   },
   onCard(card) {
-    cards.push({ ...card, afterId: conversation.messages.at(-1)?.id ?? null });
-    cards = cards.slice(-6);
+    cards = recentCards([...cards, {
+      ...card, purpose: card.purpose || 'practice',
+      afterId: conversation.messages.at(-1)?.id ?? null,
+    }]);
     renderTranscript();
     scheduleSave();
   },
@@ -152,7 +169,7 @@ function renderFocus() {
   const card = mode === 'tutor' && config?.mode === mode ? cards.at(-1) : null;
   const question = mode === 'interview' && config?.mode === mode ? interviewQuestion : '';
   const wasVisible = focusVisible;
-  const content = card ? JSON.stringify([card.context, card.language, card.term, card.reading, card.meaning]) : question;
+  const content = card ? JSON.stringify([card.purpose, card.context, card.language, card.term, card.reading, card.meaning]) : question;
   const changed = content !== focusContent;
   focusContent = content;
   focusVisible = Boolean(card || question);
@@ -168,7 +185,10 @@ function renderFocus() {
   }
   const active = live.state === 'active';
   const practice = active && !live.muted;
-  setFocusText('focus-label', card ? (practice ? 'Say this' : 'Practice phrase') : active ? 'Current question' : 'Previous question');
+  const tutorQuestion = card?.purpose === 'question';
+  setFocusText('focus-label', card
+    ? tutorQuestion ? (active ? 'Answer this' : 'Previous question') : (practice ? 'Say this' : 'Practice phrase')
+    : active ? 'Current question' : 'Previous question');
   setFocusText('focus-context', card ? (card.context || card.language)
     : question ? (config.settings.interviewStyle === 'simulation' ? 'Interview simulation' : 'Interview practice') : '');
   setFocusText('focus-title', card?.term || question);
@@ -178,7 +198,7 @@ function renderFocus() {
   $('focus-reading').hidden = !card?.reading;
   $('focus-meaning').hidden = !card?.meaning;
   $('focus-meaning').lang = languageTag(config?.settings?.supportLanguage || '');
-  $('repeat-phrase').hidden = !card;
+  $('repeat-phrase').hidden = !card || tutorQuestion;
   $('repeat-phrase').disabled = !active;
   $('repeat-phrase').title = active ? '' : 'Start or continue the tutor to hear this phrase.';
   if (focusVisible && (!wasVisible || changed) && !$('transcript-panel').open) {
@@ -273,7 +293,7 @@ function renderCard(card) {
   let article = cardNodes.get(card);
   if (article) return article;
   article = textElement('article', 'learning-card', '');
-  article.setAttribute('aria-label', 'Learning card');
+  article.setAttribute('aria-label', card.purpose === 'question' ? 'Tutor question' : 'Learning card');
   article.append(textElement('span', 'card-language', card.language));
   const term = textElement('p', 'card-term', card.term);
   const tag = languageTag(card.language);
@@ -392,13 +412,13 @@ function restore() {
     if (!Array.isArray(saved.history)) throw new Error('Saved conversation text is invalid.');
     config = applyConfig(saved.config);
     conversation = new Conversation(saved.history);
-    cards = Array.isArray(saved.cards) ? saved.cards.slice(-6).flatMap(value => {
+    cards = Array.isArray(saved.cards) ? recentCards(saved.cards.slice(-20).flatMap(value => {
       const { card } = validateLearningCard(value);
       if (!card) return [];
       const afterId = Number.isInteger(value.after)
         ? conversation.messages[value.after]?.id ?? null : conversation.messages.at(-1)?.id ?? null;
       return [{ ...card, afterId }];
-    }) : [];
+    })) : [];
     if (saved.interviewQuestion !== undefined) {
       const { question, error } = validateInterviewQuestion({ question: saved.interviewQuestion });
       if (error) throw new Error('Saved interview question is invalid.');
@@ -500,7 +520,7 @@ $('delete').addEventListener('click', () => { void deleteConversation(); });
 $('mute').addEventListener('click', () => live.setMuted(!live.muted));
 $('repeat-phrase').addEventListener('click', () => {
   const card = cards.at(-1);
-  if (mode === 'tutor' && config?.mode === mode && card) live.repeatPhrase(card);
+  if (mode === 'tutor' && config?.mode === mode && card?.purpose !== 'question') live.repeatPhrase(card);
 });
 $('transcript-panel').addEventListener('toggle', () => {
   followTranscript();
@@ -538,7 +558,7 @@ $('export').addEventListener('click', () => {
     .join('\n\n');
   if (transcript) sections.push(transcript);
   if (interviewQuestion) sections.push(`## Current interview question\n\n${interviewQuestion}`);
-  const learning = cards.map(card => {
+  const learning = cards.filter(card => card.purpose !== 'question').map(card => {
     const details = [`- **Language:** ${card.language}`];
     if (card.reading) details.push(`- **Reading:** ${card.reading}`);
     if (card.meaning) details.push(`- **Meaning:** ${card.meaning}`);

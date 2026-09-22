@@ -1,1 +1,2 @@
-Keep only tests that protect observable behavior or a concrete regression; avoid duplicate coverage and assertions tied to implementation details.
+- Keep added code minimal. Only add what is necessary to achieve the goal.
+- Be especially mindful of adding tests that are low value. Tests must justify their presence. Do not add tautological tests that only restate the implementation. Tests that require changes whenever the underlying source changes are not good tests since they assert implementation, not behavior.

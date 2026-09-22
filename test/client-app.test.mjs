@@ -202,6 +202,29 @@ test('tutor focus stays visible while the optional transcript can follow newer t
   assert.equal(element('focus-title').textContent, '');
 });
 
+test('a tutor question becomes an answer focus without phrase replay', async t => {
+  const f = await fixture(t);
+  f.modes[1].click();
+  f.element('start').click();
+  f.live.onTranscript({
+    type: 'session.output_transcript.delta',
+    delta: '¿Qué hiciste hoy?',
+    start_ms: 0,
+    end_ms: 500,
+  });
+  f.live.onCard({
+    purpose: 'question',
+    language: 'Spanish',
+    term: '¿Qué hiciste hoy?',
+    reading: '',
+    meaning: 'What did you do today?',
+    context: '',
+  });
+  assert.equal(f.element('focus-label').textContent, 'Answer this');
+  assert.equal(f.element('focus-title').textContent, '¿Qué hiciste hoy?');
+  assert.equal(f.element('repeat-phrase').hidden, true);
+});
+
 test('the current interview question survives answer updates and is saved with recent history', async t => {
   const f = await fixture(t);
   f.modes[2].click();
