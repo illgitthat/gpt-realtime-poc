@@ -512,7 +512,7 @@ test('function outputs are deduplicated and response continuation waits for comp
   channel.server({ type: 'session.delegation.created', delegation: { id: 'd1' } });
   nested({ type: 'response.created', response: { id: 'r1', output: [] } });
   const item = { type: 'function_call', call_id: 'call1', name: 'show_learning_card',
-    arguments: '{"language":"Chinese","term":"你好","reading":"nǐ hǎo","meaning":"Hello"}' };
+    arguments: '{"purpose":"practice","language":"Chinese","term":"你好","reading":"nǐ hǎo","meaning":"Hello"}' };
   nested({ type: 'response.output_item.done', response_id: 'r1', item });
   nested({ type: 'response.output_item.done', response_id: 'r1', item });
   assert.equal(f.cards.length, 1);

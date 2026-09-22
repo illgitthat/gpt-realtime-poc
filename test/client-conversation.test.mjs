@@ -145,7 +145,8 @@ test('an oversized latest history message is clipped once at a Unicode codepoint
   }
 });
 
-const card = { language: 'Chinese', term: '你好', reading: 'nǐ hǎo', meaning: 'Hello' };
+const legacyCard = { language: 'Chinese', term: '你好', reading: 'nǐ hǎo', meaning: 'Hello' };
+const card = { purpose: 'practice', ...legacyCard };
 const call = args => ({ name: 'show_learning_card', arguments: JSON.stringify(args) });
 
 test('display tool returns success only after rendering validated native-script text', () => {
@@ -164,6 +165,8 @@ test('display tool rejects unknown names, wrong modes, invalid JSON and field ty
     })),
     { item: call({ ...card, term: {} }), mode: 'tutor' },
     { item: call({ ...card, term: ' ' }), mode: 'tutor' },
+    { item: call({ ...card, purpose: 'note' }), mode: 'tutor' },
+    { item: call(legacyCard), mode: 'tutor' },
     { item: call(null), mode: 'tutor' },
   ];
   for (const { item, mode } of rejected) {

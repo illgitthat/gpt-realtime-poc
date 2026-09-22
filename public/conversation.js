@@ -105,9 +105,11 @@ export function languageTag(language) {
   try { return Intl.getCanonicalLocales(text)[0] || ''; } catch { return ''; }
 }
 
-export function validateLearningCard(value) {
+export function validateLearningCard(value, { requirePurpose = false } = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { error: 'Card must be an object.' };
-  const card = {};
+  const purpose = value.purpose ?? (requirePurpose ? null : 'practice');
+  if (!['practice', 'question'].includes(purpose)) return { error: 'Invalid card purpose.' };
+  const card = { purpose };
   for (const [key, max] of Object.entries({ language: 80, term: 200, reading: 200, meaning: 400 })) {
     if (typeof value[key] !== 'string' || value[key].length > max) return { error: `Invalid ${key}: expected text up to ${max} characters.` };
     card[key] = value[key].trim();
@@ -135,7 +137,8 @@ export function runDisplayTool(item, mode, render, renderQuestion) {
   if (typeof item.arguments !== 'string' || item.arguments.length > 12000) return { shown: false, error: 'Invalid display arguments.' };
   let args;
   try { args = JSON.parse(item.arguments); } catch { return { shown: false, error: 'Display arguments are not valid JSON.' }; }
-  const { card, question, error } = isQuestion ? validateInterviewQuestion(args) : validateLearningCard(args);
+  const { card, question, error } = isQuestion
+    ? validateInterviewQuestion(args) : validateLearningCard(args, { requirePurpose: true });
   if (error) return { shown: false, error };
   try {
     if (isQuestion) renderQuestion(question);
