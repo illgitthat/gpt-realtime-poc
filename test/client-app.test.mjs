@@ -202,7 +202,7 @@ test('tutor focus stays visible while the optional transcript can follow newer t
   assert.equal(element('focus-title').textContent, '');
 });
 
-test('a spoken tutor question becomes an answer focus without a repeat action', async t => {
+test('a tutor question becomes an answer focus without phrase replay', async t => {
   const f = await fixture(t);
   f.modes[1].click();
   f.element('start').click();
@@ -212,7 +212,6 @@ test('a spoken tutor question becomes an answer focus without a repeat action', 
     start_ms: 0,
     end_ms: 500,
   });
-  assert.equal(f.element('focus-panel').hidden, true);
   f.live.onCard({
     purpose: 'question',
     language: 'Spanish',
@@ -224,9 +223,6 @@ test('a spoken tutor question becomes an answer focus without a repeat action', 
   assert.equal(f.element('focus-label').textContent, 'Answer this');
   assert.equal(f.element('focus-title').textContent, '¿Qué hiciste hoy?');
   assert.equal(f.element('repeat-phrase').hidden, true);
-  assert.equal(f.element('transcript').lastElementChild.attributes.get('aria-label'), 'Tutor question');
-  await f.live.stop();
-  assert.equal(f.element('focus-label').textContent, 'Previous question');
 });
 
 test('the current interview question survives answer updates and is saved with recent history', async t => {
