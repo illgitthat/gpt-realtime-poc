@@ -56,6 +56,8 @@ test("deployment names are configurable and display tools are restricted to thei
   assert.deepEqual(session.delegation.responses.tools.map(tool => tool.name), ["show_learning_card"]);
   assert.equal(session.delegation.responses.parallel_tool_calls, false);
   assert.match(session.instructions, /Chinese/);
+  assert.match(session.instructions, /requested example or model sentence/);
+  assert.match(session.delegation.responses.instructions, /requested example or model sentence/);
   await createLiveSession({ env, payload: { sdp, mode: "interview" } });
   assert.deepEqual(session.delegation.responses.tools.map(tool => tool.name), ["show_interview_question"]);
   await createLiveSession({ env, payload: { sdp, mode: "general" } });
