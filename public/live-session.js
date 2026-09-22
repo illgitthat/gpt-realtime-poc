@@ -201,7 +201,7 @@ export class LiveSession {
           const setupLanguage = supportLanguage && (!settings.level || settings.level.toLowerCase() === 'beginner')
             ? supportLanguage : language || supportLanguage;
           question = language
-            ? `The learner already selected ${JSON.stringify(language)} as the target language. Do not ask which language they want. Ask one short question about their practice goal or preferred topic today.`
+            ? `The learner already selected ${JSON.stringify(language)} as the target language. Do not ask which language they want. Ask what kind of practice they want today—immersive conversation, phrases or pronunciation, vocabulary, grammar, or role-play—and how much correction they prefer. Keep it to one concise question.`
             : 'Ask one short question: which language would they like to practice?';
           if (setupLanguage) question += ` Ask this setup question in ${JSON.stringify(setupLanguage)}.`;
         } else {
@@ -358,7 +358,9 @@ export class LiveSession {
     try {
       void this.resumePlayback(c);
       this.send(c, {
-        type: 'session.commentary.append', delegation_id: null, content: card.term,
+        type: 'session.commentary.append',
+        delegation_id: null,
+        content: `Replay request. Say this practice phrase exactly once and say nothing else: ${JSON.stringify(card.term)}`,
       });
       return true;
     } catch (error) {

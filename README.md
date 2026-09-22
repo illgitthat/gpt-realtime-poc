@@ -37,7 +37,7 @@ Open http://localhost:8787.
 | `AZURE_OPENAI_BASE_URL` | APIM gateway URL ending in `/openai/v1`. |
 | `AZURE_OPENAI_API_KEY` | APIM subscription key. |
 | `AZURE_OPENAI_DEPLOYMENT_NAME` | Defaults to `gpt-live-1`. |
-| `AZURE_OPENAI_REASONING_DEPLOYMENT_NAME` | Defaults to `gpt-5.6-sol`. |
+| `AZURE_OPENAI_REASONING_DEPLOYMENT_NAME` | Defaults to `gpt-5.6-luna`. |
 
 APIM authenticates to Foundry with managed identity.
 

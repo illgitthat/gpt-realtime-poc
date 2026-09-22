@@ -31,7 +31,7 @@ export function readRuntimeEnv(environment) {
   }
   settings.AZURE_OPENAI_BASE_URL = settings.AZURE_OPENAI_BASE_URL.replace(/\/+$/, "");
   settings.AZURE_OPENAI_DEPLOYMENT_NAME ||= "gpt-live-1";
-  settings.AZURE_OPENAI_REASONING_DEPLOYMENT_NAME ||= "gpt-5.6-sol";
+  settings.AZURE_OPENAI_REASONING_DEPLOYMENT_NAME ||= "gpt-5.6-luna";
   return settings;
 }
 

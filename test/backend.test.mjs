@@ -31,7 +31,7 @@ test("Live negotiation uses APIM once, keeps credentials server-side, and restor
   assert.equal(request.init.headers["api-key"], "test-gateway-key");
   assert.equal(request.body.session.model, "gpt-live-1");
   assert.equal(request.body.session.audio.output.voice, "marin");
-  assert.equal(request.body.session.delegation.responses.model, "gpt-5.6-sol");
+  assert.equal(request.body.session.delegation.responses.model, "gpt-5.6-luna");
   assert.deepEqual(request.body.session.input, [
     { role: "user", content: [{ type: "input_text", text: "你好，练习中文。" }] },
     { role: "assistant", content: [{ type: "output_text", text: "好的。" }] },

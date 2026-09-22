@@ -154,7 +154,7 @@ async function createLiveSession({ payload, env, signal }) {
     delegation: {
       type: "responses",
       responses: {
-        model: env.AZURE_OPENAI_REASONING_DEPLOYMENT_NAME?.trim() || "gpt-5.6-sol",
+        model: env.AZURE_OPENAI_REASONING_DEPLOYMENT_NAME?.trim() || "gpt-5.6-luna",
         instructions: prompts.backend,
         reasoning: { effort: "low" },
         max_output_tokens: 2048,
