@@ -79,7 +79,7 @@ function fixture(t, { permission, fetcher, peerFactory } = {}) {
       session: { id: 'live_test' }, transport: { type: 'webrtc', sdp: 'answer' },
     }), { status: 201 });
   });
-  const states = [], errors = [], transcripts = [], cards = [], working = [], playback = [], closed = [];
+  const states = [], errors = [], transcripts = [], cards = [], working = [], playback = [], closed = [], idle = [];
   const audio = { srcObject: null, muted: false, paused: false,
     play: async () => { audio.paused = false; }, pause: () => { audio.paused = true; } };
   const live = new LiveSession({
@@ -87,6 +87,7 @@ function fixture(t, { permission, fetcher, peerFactory } = {}) {
     onTranscript: value => transcripts.push(value), onCard: value => cards.push(value),
     onWorking: value => working.push(value), onPlayback: value => playback.push(value),
     onClosed: value => closed.push(value),
+    onIdle: () => idle.push(true),
   });
   t.after(async () => {
     await live.stop({ immediate: true });
@@ -107,7 +108,10 @@ function fixture(t, { permission, fetcher, peerFactory } = {}) {
     assert.equal(await result.promise, true);
     return result;
   }
-  return { live, audio, tracks, peers, requests, states, errors, transcripts, cards, working, playback, closed, start, ready, mediaRequests: () => mediaRequests };
+  return {
+    live, audio, tracks, peers, requests, states, errors, transcripts, cards,
+    working, playback, closed, idle, start, ready, mediaRequests: () => mediaRequests,
+  };
 }
 
 test('Listening waits three seconds after service startup while capture and transcripts stay active', async t => {
@@ -332,6 +336,38 @@ test('end silences mic immediately, drains session.closed and ignores delayed to
   assert.deepEqual(f.closed[0].usage, { seconds: 52 });
   assert.equal(f.closed[0].confirmed, true);
   assert.equal(f.closed[0].reason, 'close_requested');
+});
+
+test('ten minutes without user or assistant speech gracefully ends the session', async t => {
+  const f = fixture(t);
+  const { channel } = await f.ready();
+  t.mock.timers.tick(9 * 60 * 1000);
+  assert.equal(f.live.state, 'active');
+  channel.server({ type: 'session.input_transcript.delta', delta: 'Still here', start_ms: 0, end_ms: 100 });
+  t.mock.timers.tick(9 * 60 * 1000);
+  channel.server({ type: 'session.output_transcript.delta', delta: 'Me too', start_ms: 100, end_ms: 200 });
+  t.mock.timers.tick(10 * 60 * 1000 - 1);
+  assert.equal(f.live.state, 'active');
+  t.mock.timers.tick(1);
+  assert.equal(f.live.state, 'closing');
+  assert.equal(channel.sent.at(-1).type, 'session.close');
+  channel.server({ type: 'session.closed', reason: 'close_requested' });
+  await flush();
+  assert.equal(f.live.state, 'ended');
+  assert.deepEqual(f.idle, [true]);
+});
+
+test('assistant work pauses the idle timeout until the work finishes', async t => {
+  const f = fixture(t);
+  const { channel } = await f.ready();
+  channel.server({ type: 'session.delegation.created', delegation: { id: 'd1' } });
+  t.mock.timers.tick(20 * 60 * 1000);
+  assert.equal(f.live.state, 'active');
+  channel.server({ type: 'response.event', delegation_id: 'd1', event: {
+    type: 'response.completed', response: { id: 'r1', output: [] },
+  } });
+  t.mock.timers.tick(10 * 60 * 1000);
+  assert.equal(f.live.state, 'closing');
 });
 
 test('service closure reasons use plain-language recovery states', async t => {

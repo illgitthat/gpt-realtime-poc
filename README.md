@@ -5,6 +5,7 @@ Runs on Cloudflare Workers or Azure Static Web Apps.
 
 Tutor phrases and interview questions stay in view while you speak.
 **Hear again** repeats the current phrase; **Transcript** opens the conversation log.
+Active sessions end after 10 minutes without user or assistant speech.
 
 <p>
   <img src="./docs/images/voice-chat.png" width="280" alt="Voice chat with three conversation modes">

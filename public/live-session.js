@@ -1,11 +1,15 @@
 import { recentHistory, runDisplayTool, validateLearningCard } from './conversation.js';
 
 const noop = () => {};
+const idleTimeoutMs = 10 * 60 * 1000;
 
 export class LiveSession {
   constructor({ audio, onState = noop, onTranscript = noop, onCard, onQuestion, onError = noop,
-    onWorking = noop, onPlayback = noop, onMute = noop, onClosed = noop }) {
-    Object.assign(this, { audio, onState, onTranscript, onCard, onQuestion, onError, onWorking, onPlayback, onMute, onClosed });
+    onWorking = noop, onPlayback = noop, onMute = noop, onClosed = noop, onIdle = noop }) {
+    Object.assign(this, {
+      audio, onState, onTranscript, onCard, onQuestion, onError,
+      onWorking, onPlayback, onMute, onClosed, onIdle,
+    });
     this.connection = null;
     this.state = 'idle';
     this.muted = false;
@@ -40,6 +44,16 @@ export class LiveSession {
   cancelTimer(c, timer) {
     clearTimeout(timer);
     c.timers.delete(timer);
+  }
+
+  refreshIdleTimer(c) {
+    if (c.idleTimer) this.cancelTimer(c, c.idleTimer);
+    c.idleTimer = null;
+    if (!this.isOpen(c) || !c.ready || c.working.size) return;
+    c.idleTimer = this.later(c, () => {
+      c.idleTimer = null;
+      void this.stop().then(() => this.onIdle());
+    }, idleTimeoutMs);
   }
 
   async start(config, history = [], { opening = false } = {}) {
@@ -224,6 +238,7 @@ export class LiveSession {
           this.send(c, { type: 'response.create' });
         }
       }
+      this.refreshIdleTimer(c);
       c.resolveStarted(true);
     } catch (error) {
       this.fail(c, `Could not start the voice session: ${error.message}`);
@@ -260,12 +275,17 @@ export class LiveSession {
         }, 3000);
       }
     } else if (event.type === 'session.input_transcript.delta' || event.type === 'session.output_transcript.delta') {
-      if (c.sessionStarted) this.onTranscript(event);
+      if (c.sessionStarted) {
+        this.refreshIdleTimer(c);
+        this.onTranscript(event);
+      }
     } else if (event.type === 'session.delegation.created') {
       c.working.add(event.delegation?.id || event.delegation_id || 'delegation');
       this.onWorking(true);
+      this.refreshIdleTimer(c);
     } else if (event.type === 'response.event') {
       this.responseEvent(c, event);
+      this.refreshIdleTimer(c);
     } else if (event.type === 'session.error') {
       this.fail(c, event.error?.message || event.message || 'The voice session failed.');
     } else if (event.type === 'error') {
@@ -284,6 +304,7 @@ export class LiveSession {
           c.pendingMute = null;
         }
         this.onError(message);
+        this.refreshIdleTimer(c);
       }
     } else if (event.type === 'session.input_audio.muted' || event.type === 'session.input_audio.unmuted') {
       if (event.client_event_id === c.pendingMute?.id) {

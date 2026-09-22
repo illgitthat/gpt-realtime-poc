@@ -84,6 +84,10 @@ const live = new LiveSession({
   onClosed({ confirmed }) {
     if (!confirmed) console.warn('Voice session ended without final usage confirmation.');
   },
+  onIdle() {
+    showNotice('Conversation ended after 10 minutes of inactivity.');
+    void flushSave();
+  },
 });
 
 function chooseMode(next) {
