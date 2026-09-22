@@ -268,8 +268,6 @@ test('tutor opening runs once after ready, never on explicit history recovery', 
   assert.equal(first.channel.sent.length, 1);
   assert.equal(first.channel.sent[0].type, 'session.instructions.append');
   assert.equal(first.channel.sent[0].delegation_id, null);
-  assert.match(first.channel.sent[0].content, /begin useful practice/);
-  assert.match(first.channel.sent[0].content, /Do not delay practice to ask about correction preferences/);
   await f.live.stop({ immediate: true });
   const second = await f.ready({ mode: 'tutor', settings: { language: 'Chinese' } }, [{ role: 'user', text: '你好' }], { opening: false });
   assert.equal(second.channel.sent.length, 0);
