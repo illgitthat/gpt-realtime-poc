@@ -62,7 +62,7 @@ test("installed Wrangler loads credentials and optional model overrides for root
         assert.deepEqual(loaded, expected, `${env || "root"} must load .dev.vars without filtering`);
         const runtime = readRuntimeEnv(loaded);
         assert.equal(runtime.AZURE_OPENAI_DEPLOYMENT_NAME, expected.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-live-1");
-        assert.equal(runtime.AZURE_OPENAI_REASONING_DEPLOYMENT_NAME, expected.AZURE_OPENAI_REASONING_DEPLOYMENT_NAME || "gpt-5.6-luna");
+        assert.equal(runtime.AZURE_OPENAI_REASONING_DEPLOYMENT_NAME, expected.AZURE_OPENAI_REASONING_DEPLOYMENT_NAME || "gpt-6-luna");
       }
     }
   } finally {
