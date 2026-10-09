@@ -15,7 +15,7 @@ on:
           - preview
           - production
       dry_run:
-        description: Run Wrangler in dry-run mode instead of deploying
+        description: Run cf in dry-run mode instead of deploying
         required: true
         default: true
         type: boolean

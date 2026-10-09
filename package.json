@@ -4,29 +4,30 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "build": "npm run typecheck",
+    "build": "npm run typecheck && cf build",
     "typecheck": "npm run types && tsc --noEmit",
     "test": "node --test test/*.test.mjs",
     "test:deployment": "node --test scripts/*.test.mjs",
-    "types": "wrangler types --include-env false",
-    "dev": "wrangler dev --port 8787",
+    "types": "cf workers types",
+    "dev": "cf dev",
     "dev:swa": "swa start",
     "setup:swa": "node ./scripts/setup-swa.mjs",
     "deploy": "npm run deploy:dry-run",
-    "deploy:dry-run": "wrangler deploy --env \"\" --dry-run",
+    "deploy:dry-run": "cf deploy --mode production --dry-run",
     "deploy:preview": "node scripts/deploy-preview.mjs",
-    "deploy:preview:dry-run": "wrangler deploy --env preview --dry-run",
+    "deploy:preview:dry-run": "cf deploy --mode preview --dry-run",
     "deploy:production": "node ./scripts/deploy-with-domain.mjs --production",
     "deploy:domain": "node ./scripts/deploy-with-domain.mjs --production",
     "deploy:swa": "node ./scripts/deploy-swa.mjs"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.18"
   },
   "devDependencies": {
     "@azure/static-web-apps-cli": "^2.0.10",
-    "@types/node": "^26.6.1",
+    "@types/node": "^26.6.5",
+    "cf": "^1.0.0-beta.14",
     "typescript": "^7.0.2",
-    "wrangler": "^4.133.0"
+    "wrangler": "^4.149.0"
   }
 }

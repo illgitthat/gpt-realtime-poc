@@ -1,12 +1,12 @@
-import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import cloudflareConfig from "../cloudflare.config.ts";
 import { deploymentChildEnv, readDeploymentEnv } from "./runtime-env.mjs";
 
 export function deployProduction({
   environment = process.env,
   args = process.argv.slice(2),
-  config = JSON.parse(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8")),
+  config = cloudflareConfig({ mode: "production", isPreview: false }),
   run = spawnSync,
 } = {}) {
   if (!args.includes("--production") || args.some((arg) => !["--production", "--dry-run"].includes(arg))) {
@@ -26,16 +26,16 @@ export function deployProduction({
     throw new Error("Production deployment is allowed only from main. Use deploy:preview for feature branches.");
   }
   if (
-    config.name !== "gpt-realtime-poc" ||
-    !config.routes?.some((route) => route.pattern === "voice.adamcbloom.com" && route.custom_domain === true)
+    config.worker?.name !== "gpt-realtime-poc" ||
+    !config.worker.domains?.includes("voice.adamcbloom.com")
   ) {
-    throw new Error("Production Worker name or custom domain is missing from wrangler.jsonc.");
+    throw new Error("Production Worker name or custom domain is missing from cloudflare.config.ts.");
   }
-  const wrangler = fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js", import.meta.url));
-  // Convert Node's subprocess socket to a real pipe before Wrangler opens /dev/stdin.
+  const cf = fileURLToPath(new URL("../node_modules/cf/bin/cf", import.meta.url));
+  // Convert Node's subprocess socket to a real pipe before cf opens /dev/stdin.
   const result = run("bash", [
-    "-o", "pipefail", "-c", 'cat | exec "$@"', "wrangler-stdin",
-    process.execPath, wrangler, "deploy", "--env", "", "--keep-vars",
+    "-o", "pipefail", "-c", 'cat | exec "$@"', "cf-stdin",
+    process.execPath, cf, "deploy", "--mode", "production",
     "--secrets-file", "/dev/stdin", ...(dryRun ? ["--dry-run"] : []),
   ], {
     cwd,

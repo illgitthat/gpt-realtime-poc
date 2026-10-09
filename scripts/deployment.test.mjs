@@ -5,7 +5,8 @@ import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import test from "node:test";
-import { unstable_getVarsForDev, unstable_readConfig } from "wrangler";
+import { unstable_getVarsForDev } from "wrangler";
+import cloudflareConfig from "../cloudflare.config.ts";
 import { deployPreview } from "./deploy-preview.mjs";
 import { deployProduction } from "./deploy-with-domain.mjs";
 import { readDeploymentEnv, readRuntimeEnv, runtimeEnvNames } from "./runtime-env.mjs";
@@ -14,7 +15,8 @@ const values = {
   AZURE_OPENAI_BASE_URL: "https://gateway.example.com/general/openai/v1/",
   AZURE_OPENAI_API_KEY: "test-only-placeholder",
 };
-const config = JSON.parse(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
+const config = cloudflareConfig({ mode: "production", isPreview: false });
+const previewConfig = cloudflareConfig({ mode: "preview", isPreview: false });
 const previewOptions = {
   environment: {
     ...values,
@@ -22,7 +24,7 @@ const previewOptions = {
     LIVE_PRODUCTION_ENV: "other-target-secret-must-not-leak",
   },
   args: [],
-  config,
+  config: previewConfig,
 };
 const productionOptions = {
   environment: {
@@ -36,16 +38,11 @@ const productionOptions = {
   config,
 };
 
-test("installed Wrangler loads credentials and optional model overrides for root and preview", () => {
-  const directory = fileURLToPath(new URL(`../.wrangler/config-test-${randomUUID()}/`, import.meta.url));
+test("installed build tool loads local credentials and optional model overrides for production and preview", () => {
+  const directory = fileURLToPath(new URL(`../.cloudflare/config-test-${randomUUID()}/`, import.meta.url));
   mkdirSync(directory, { recursive: true });
   try {
-    const configPath = join(directory, "wrangler.jsonc");
-    writeFileSync(configPath, JSON.stringify({
-      ...config,
-      main: fileURLToPath(new URL("../src/worker.ts", import.meta.url)),
-      assets: { ...config.assets, directory: fileURLToPath(new URL("../public", import.meta.url)) },
-    }));
+    const configPath = join(directory, "cloudflare.config.ts");
     for (const expected of [
       {
         ...values,
@@ -55,11 +52,10 @@ test("installed Wrangler loads credentials and optional model overrides for root
       values,
     ]) {
       writeFileSync(join(directory, ".dev.vars"), Object.entries(expected).map(([key, value]) => `${key}=${value}`).join("\n"));
-      for (const env of [undefined, "preview"]) {
-        const resolved = unstable_readConfig({ config: configPath, env }, { hideWarnings: true });
-        const bindings = unstable_getVarsForDev(configPath, undefined, resolved.vars, env, true, resolved.secrets);
+      for (const mode of ["production", "preview"]) {
+        const bindings = unstable_getVarsForDev(configPath, undefined, {}, mode, true);
         const loaded = Object.fromEntries(Object.entries(bindings).map(([key, binding]) => [key, binding.value]));
-        assert.deepEqual(loaded, expected, `${env || "root"} must load .dev.vars without filtering`);
+        assert.deepEqual(loaded, expected, `${mode} must load .dev.vars without filtering`);
         const runtime = readRuntimeEnv(loaded);
         assert.equal(runtime.AZURE_OPENAI_DEPLOYMENT_NAME, expected.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-live-1");
         assert.equal(runtime.AZURE_OPENAI_REASONING_DEPLOYMENT_NAME, expected.AZURE_OPENAI_REASONING_DEPLOYMENT_NAME || "gpt-6-luna");
@@ -91,18 +87,17 @@ test("deployment credentials reject empty, malformed, unexpected, or unsafe valu
 });
 
 test("preview and production deploy code and secrets atomically with stdin-only runtime credentials", () => {
-  for (const [deploy, options, target, keep] of [
-    [deployPreview, previewOptions, "preview", false],
-    [deployProduction, productionOptions, "", true],
+  for (const [deploy, options, target] of [
+    [deployPreview, previewOptions, "preview"],
+    [deployProduction, productionOptions, "production"],
   ]) {
     const calls = [];
     deploy({ ...options, run: (...args) => { calls.push(args); return { status: 0 }; } });
     assert.equal(calls.length, 1);
     const [, args, spawnOptions] = calls[0];
     assert.ok(args.includes("deploy"));
-    assert.equal(args[args.indexOf("--env") + 1], target);
+    assert.equal(args[args.indexOf("--mode") + 1], target);
     assert.equal(args[args.indexOf("--secrets-file") + 1], "/dev/stdin");
-    assert.equal(args.includes("--keep-vars"), keep);
     assert.deepEqual(JSON.parse(spawnOptions.input), readRuntimeEnv(values));
     assert.deepEqual(spawnOptions.stdio, ["pipe", "inherit", "inherit"]);
     for (const name of [...runtimeEnvNames, "LIVE_PREVIEW_ENV", "LIVE_PRODUCTION_ENV"]) {
@@ -118,10 +113,11 @@ test("preview refuses missing secrets, production names, inherited routes, and a
   for (const options of [
     { environment: { LIVE_PREVIEW_ENV: "" } },
     { args: ["--name", "gpt-realtime-poc"] },
-    { config: { env: { preview: { ...config.env.preview, name: config.name } } } },
-    { config: { env: { preview: { ...config.env.preview, routes: undefined } } } },
-    { config: { env: { preview: { ...config.env.preview, routes: config.routes } } } },
-    { config: { env: { preview: { ...config.env.preview, workers_dev: false } } } },
+    { config: { worker: { ...previewConfig.worker, name: config.worker.name } } },
+    { config: { worker: { ...previewConfig.worker, domains: undefined } } },
+    { config: { worker: { ...previewConfig.worker, domains: config.worker.domains } } },
+    { config: { worker: { ...previewConfig.worker, triggers: [{ type: "fetch", pattern: "example.com/*" }] } } },
+    { config: { worker: { ...previewConfig.worker, workersDev: false } } },
   ]) {
     assert.throws(() => deployPreview({ ...previewOptions, ...options, run }));
   }
@@ -134,8 +130,8 @@ test("production requires validated configuration and the main ref before any de
     { environment: { ...productionOptions.environment, LIVE_PRODUCTION_ENV: "secret-sentinel-invalid-json" } },
     { environment: { ...productionOptions.environment, GITHUB_REF: "refs/heads/feature" } },
     { args: ["--production", "--env", "preview"] },
-    { config: { ...config, name: "gpt-realtime-poc-live-preview" } },
-    { config: { ...config, routes: [] } },
+    { config: { worker: { ...config.worker, name: "gpt-realtime-poc-live-preview" } } },
+    { config: { worker: { ...config.worker, domains: [] } } },
   ]) {
     assert.throws(() => deployProduction({ ...productionOptions, ...options, run }));
   }
@@ -152,7 +148,7 @@ test("atomic deployment failures fail the workflow without a separate secret upl
   }
 });
 
-test("installed Wrangler accepts atomic stdin secrets in safe dry-runs without logging placeholder values", {
+test("installed cf builds isolated targets with atomic stdin secrets without logging their values", {
   skip: process.platform === "win32",
 }, () => {
   for (const [deploy, options] of [[deployPreview, previewOptions], [deployProduction, productionOptions]]) {
@@ -166,11 +162,20 @@ test("installed Wrangler accepts atomic stdin secrets in safe dry-runs without l
         calls += 1;
         const result = spawnSync(command, args, { ...spawnOptions, stdio: ["pipe", "pipe", "pipe"], encoding: "utf8" });
         const output = `${result.stdout}${result.stderr}`;
-        assert.equal(result.status, 0, "Wrangler must support --secrets-file /dev/stdin");
+        assert.equal(result.status, 0, `cf must support --secrets-file /dev/stdin: ${output}`);
         assert.match(output, /--dry-run: exiting now/);
         assert.match(output, /AZURE_OPENAI_API_KEY/);
         for (const value of Object.values(readRuntimeEnv(values))) {
-          assert.ok(!output.includes(value), "Wrangler must hide supplied runtime values");
+          assert.ok(!output.includes(value), "cf must hide supplied runtime values");
+        }
+        const built = JSON.parse(readFileSync(new URL("../.cloudflare/output/v0/workers/default/worker.config.json", import.meta.url), "utf8"));
+        const preview = deploy === deployPreview;
+        assert.equal(built.name, preview ? "gpt-realtime-poc-live-preview" : "gpt-realtime-poc");
+        assert.deepEqual(built.domains, preview ? [] : ["voice.adamcbloom.com"]);
+        assert.deepEqual(built.triggers, []);
+        assert.equal(built.workersDev, true);
+        if (!preview) {
+          assert.deepEqual(built.unsafe.metadata.keep_bindings, ["secret_text", "secret_key", "plain_text", "json"]);
         }
         return result;
       },
