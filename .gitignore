@@ -1,7 +1,8 @@
 # Dependencies
 node_modules/
 
-# Wrangler
+# Cloudflare
+.cloudflare/
 .wrangler/
 /worker-configuration.d.ts
 .dev.vars

@@ -17,6 +17,8 @@
     "include": [
       "src/**/*.ts",
       "api/shared/**/*.d.ts",
-      "worker-configuration.d.ts"
+      "cloudflare.config.ts",
+      "wrangler.config.ts",
+      ".cloudflare/types/**/*.d.ts"
     ]
 }

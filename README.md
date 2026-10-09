@@ -14,7 +14,7 @@ Active sessions end after 10 minutes without user or assistant speech.
 
 ## Run locally
 
-Requires Node.js 22+, npm, and an Azure APIM gateway with
+Requires Node.js 22.18+, npm, and an Azure APIM gateway with
 `/openai/v1/live/sessions` support.
 
 Create `.dev.vars`:
@@ -46,8 +46,13 @@ APIM authenticates to Foundry with managed identity.
 
 ### Cloudflare Workers
 
-Set your Worker names and domain in `wrangler.jsonc` and the target checks in
+Set your Worker names and domain in `cloudflare.config.ts` and the target checks in
 `scripts/deploy-preview.mjs` and `scripts/deploy-with-domain.mjs`.
+
+Project commands use the beta Cloudflare CLI (`cf`). Wrangler remains only as
+its build tool; `wrangler.config.ts` sets the static assets directory and local port.
+`npm run build` checks types and writes Build Output to `.cloudflare/output/v0/`.
+Production keeps existing dashboard variables.
 
 The [deployment workflow](.github/workflows/deploy-worker.yml) deploys `main`
 automatically. Manual runs default to a preview dry-run. GitHub configuration:
@@ -56,7 +61,8 @@ automatically. Manual runs default to a preview dry-run. GitHub configuration:
 - Variable: `CLOUDFLARE_ACCOUNT_ID`.
 
 Each `LIVE_*_ENV` is a JSON object containing the server variables above.
-For CLI deployment, authenticate with Cloudflare and export the corresponding
+For CLI deployment, run `npx cf auth login` (the Wrangler login is not reused)
+or export `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Export the corresponding
 `LIVE_*_ENV` in your shell. Bash is required.
 
 ```bash

@@ -1,19 +1,20 @@
-import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import cloudflareConfig from "../cloudflare.config.ts";
 import { deploymentChildEnv, readDeploymentEnv } from "./runtime-env.mjs";
 
 export function deployPreview({
   environment = process.env,
   args = process.argv.slice(2),
-  config = JSON.parse(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8")),
+  config = cloudflareConfig({ mode: "preview", isPreview: false }),
   run = spawnSync,
 } = {}) {
   const settings = readDeploymentEnv(environment.LIVE_PREVIEW_ENV, "LIVE_PREVIEW_ENV");
-  const preview = config.env?.preview;
+  const preview = config.worker;
   if (
-    preview?.name !== "gpt-realtime-poc-live-preview" || preview.workers_dev !== true ||
-    !Array.isArray(preview.routes) || preview.routes.length !== 0
+    preview?.name !== "gpt-realtime-poc-live-preview" || preview.workersDev !== true ||
+    !Array.isArray(preview.domains) || preview.domains.length !== 0 ||
+    !Array.isArray(preview.triggers) || preview.triggers.length !== 0
   ) {
     throw new Error("Preview must explicitly target gpt-realtime-poc-live-preview with workers.dev and no routes.");
   }
@@ -21,11 +22,11 @@ export function deployPreview({
     throw new Error("Preview deployment accepts no target overrides.");
   }
   const cwd = fileURLToPath(new URL("../", import.meta.url));
-  const wrangler = fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js", import.meta.url));
-  // Node's subprocess stdin is a socket; cat gives /dev/stdin the real pipe Wrangler needs.
+  const cf = fileURLToPath(new URL("../node_modules/cf/bin/cf", import.meta.url));
+  // Node's subprocess stdin is a socket; cat gives /dev/stdin the real pipe cf needs.
   const deploy = run("bash", [
-    "-o", "pipefail", "-c", 'cat | exec "$@"', "wrangler-stdin",
-    process.execPath, wrangler, "deploy", "--env", "preview",
+    "-o", "pipefail", "-c", 'cat | exec "$@"', "cf-stdin",
+    process.execPath, cf, "deploy", "--mode", "preview",
     "--secrets-file", "/dev/stdin", ...args,
   ], {
     cwd,
